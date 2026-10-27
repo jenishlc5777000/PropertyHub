@@ -1,0 +1,3 @@
+# Netlify: proxy the sitemap to the API, then SPA fallback
+/sitemap.xml  https://propertyhub-api.onrender.com/sitemap.xml  200
+/*            /index.html  200
