@@ -168,18 +168,108 @@ test('webhook: rejects bad signature, credits once on payment.captured retries',
 });
 
 test('search filters, text search and near-me work', async () => {
-  const r = await request(app).get('/api/v1/properties').query({ city: 'Bengaluru', purpose: 'sale', sort: 'price_asc' });
+  const r = await request(app).get('/api/v1/properties').query({ city: 'Chennai', purpose: 'sale', sort: 'price_asc' });
   assert.equal(r.status, 200);
   assert.ok(r.body.data.length > 0);
-  r.body.data.forEach((p) => assert.equal(p.address.city, 'Bengaluru'));
+  r.body.data.forEach((p) => assert.equal(p.address.city, 'Chennai'));
   const prices = r.body.data.filter((p) => !p.featured).map((p) => p.price);
   assert.deepEqual(prices, [...prices].sort((a, b) => a - b));
 
   const t = await request(app).get('/api/v1/properties').query({ q: 'villa' });
   assert.ok(t.body.data.every((p) => /villa/i.test(p.title + p.description)));
 
-  const near = await request(app).get('/api/v1/properties/near').query({ lat: 12.97, lng: 77.6, radiusKm: 30 });
+  const near = await request(app).get('/api/v1/properties/near').query({ lat: 13.0, lng: 80.22, radiusKm: 30 });
   assert.equal(near.status, 200);
   assert.ok(near.body.data.length > 0);
   near.body.data.forEach((p) => assert.ok(p.distanceKm <= 30));
+  const ds = near.body.data.map((p) => p.distanceKm);
+  assert.deepEqual(ds, [...ds].sort((a, b) => a - b), 'near-me results are nearest first');
+});
+
+// 1x1 PNG
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+const listing = (city = 'Chennai', locality = 'Velachery') => ({
+  title: 'Test 2 BHK flat near the lake',
+  description: 'A bright two bedroom flat with covered parking and 24x7 water supply in a quiet street.',
+  type: 'apartment',
+  purpose: 'rent',
+  price: 25000,
+  areaSqft: 950,
+  bedrooms: 2,
+  bathrooms: 2,
+  furnishing: 'semi-furnished',
+  amenities: ['parking'],
+  address: { line: '12 Lake View Road', locality, city, state: 'Tamil Nadu', pincode: '600042' },
+  lat: 12.98,
+  lng: 80.22,
+});
+const post = (token, body) =>
+  request(app).post('/api/v1/properties').set(auth(token)).field('data', JSON.stringify(body)).attach('images', PNG, { filename: 'a.png', contentType: 'image/png' });
+const login = async (email, password) => (await request(app).post('/api/v1/auth/login').send({ email, password })).body.data.accessToken;
+
+test('new listings wait in the admin review queue until approved; content edits go back to review', async () => {
+  const agent = await login('priya@propertyhub.in', 'Agent@12345');
+  const admin = await login('admin@propertyhub.in', 'Admin@12345');
+  const c = await post(agent, listing());
+  assert.equal(c.status, 201, JSON.stringify(c.body));
+  assert.equal(c.body.data.status, 'pending');
+  const id = c.body.data._id;
+  const slug = c.body.data.slug;
+
+  const publicBefore = await request(app).get('/api/v1/properties').query({ q: 'lake', limit: 50 });
+  assert.ok(!publicBefore.body.data.some((p) => p._id === id), 'pending ad must not be listed');
+  assert.equal((await request(app).get(`/api/v1/properties/${slug}`)).status, 404);
+
+  const queue = await request(app).get('/api/v1/admin/properties').query({ status: 'pending' }).set(auth(admin));
+  assert.ok(queue.body.data.some((p) => p._id === id), 'ad appears in review queue');
+
+  assert.equal((await request(app).patch(`/api/v1/admin/properties/${id}/approve`).set(auth(admin))).status, 200);
+  const publicAfter = await request(app).get(`/api/v1/properties/${slug}`);
+  assert.equal(publicAfter.status, 200);
+  assert.equal(publicAfter.body.data.status, 'approved');
+
+  // Price-only change (form resends every field) keeps it live
+  const priceOnly = await request(app).patch(`/api/v1/properties/${id}`).set(auth(agent)).field('data', JSON.stringify({ ...listing(), price: 23000 }));
+  assert.equal(priceOnly.body.data.status, 'approved', JSON.stringify(priceOnly.body));
+  // Title change sends it back for review
+  const edited = await request(app).patch(`/api/v1/properties/${id}`).set(auth(agent)).field('data', JSON.stringify({ ...listing(), price: 23000, title: 'Renovated 2 BHK flat near the lake' }));
+  assert.equal(edited.body.data.status, 'pending');
+});
+
+test('only Chennai is live: other cities are hidden and refused until an admin enables them', async () => {
+  const agent = await login('arjun@propertyhub.in', 'Agent@12345');
+  const admin = await login('admin@propertyhub.in', 'Admin@12345');
+
+  const cfg = await request(app).get('/api/v1/config');
+  assert.deepEqual(cfg.body.data.activeCities.map((c) => c.name), ['Chennai']);
+  assert.ok(cfg.body.data.activeCities[0].localities.length >= 10);
+
+  const refused = await post(agent, listing('Bengaluru', 'Whitefield'));
+  assert.equal(refused.status, 400);
+  assert.equal(refused.body.error.code, 'CITY_NOT_SERVED');
+
+  // A Bengaluru listing that already exists (e.g. older data) stays hidden
+  const seedOwner = await Property.findOne().select('owner').lean();
+  const blr = await Property.create({
+    ...listing('Bengaluru', 'Whitefield'),
+    slug: `blr-${Date.now()}`,
+    location: { type: 'Point', coordinates: [77.75, 12.97] },
+    status: 'approved',
+    owner: seedOwner.owner,
+    images: [{ url: 'https://example.com/a.jpg' }],
+  });
+  const all = await request(app).get('/api/v1/properties').query({ limit: 50 });
+  assert.ok(all.body.data.every((p) => p.address.city === 'Chennai'));
+  assert.equal((await request(app).get(`/api/v1/properties/${blr.slug}`)).status, 404);
+  const { token } = await newUser();
+  const unlock = await request(app).post(`/api/v1/properties/${blr._id}/unlock-contact`).set(auth(token));
+  assert.equal(unlock.body.error.code, 'NOT_APPROVED');
+
+  // Admin turns Bengaluru on
+  const bad = await request(app).patch('/api/v1/admin/settings').set(auth(admin)).send({ activeCities: ['Atlantis'] });
+  assert.equal(bad.status, 400);
+  const on = await request(app).patch('/api/v1/admin/settings').set(auth(admin)).send({ activeCities: ['Chennai', 'Bengaluru'] });
+  assert.equal(on.status, 200);
+  assert.equal((await request(app).get(`/api/v1/properties/${blr.slug}`)).status, 200);
+  await request(app).patch('/api/v1/admin/settings').set(auth(admin)).send({ activeCities: ['Chennai'] });
 });

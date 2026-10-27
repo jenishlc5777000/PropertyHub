@@ -5,6 +5,7 @@ import { getSetting } from './settings.service.js';
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 import { rawContact } from './property.service.js';
+import { getActiveCities } from './settings.service.js';
 
 /** Creates the wallet with the configured free credits on first access (idempotent via unique index). */
 export async function getOrCreateWallet(userId, session) {
@@ -67,7 +68,7 @@ export async function unlockContact(user, propertyId, ip) {
     };
   }
 
-  if (property.status !== 'approved') {
+  if (property.status !== 'approved' || !(await getActiveCities()).includes(property.address.city)) {
     throw new ApiError(400, 'This listing is not available for contact unlock', 'NOT_APPROVED');
   }
 

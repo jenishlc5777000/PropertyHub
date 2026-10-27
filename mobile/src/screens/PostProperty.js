@@ -6,10 +6,11 @@ import * as Location from 'expo-location';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { AMENITIES, CITIES, FURNISHING, MAX_IMAGES, PROPERTY_TYPES, apiErrorMessage, formatINR, propertySchema, titleCase, zodFieldErrors } from '@propertyhub/shared';
+import { AMENITIES, FURNISHING, MAX_IMAGES, PROPERTY_TYPES, apiErrorMessage, formatINR, propertySchema, titleCase, zodFieldErrors } from '@propertyhub/shared';
 import { api } from '../api';
 import { useTheme } from '../theme';
 import { useAuth } from '../context/AuthContext';
+import { useConfig } from '../hooks';
 import OsmMap from '../components/OsmMap';
 import { Button, Chip, EmptyState, ErrorState, Input, ListSkeleton, Txt } from '../components/ui';
 
@@ -51,6 +52,13 @@ export default function PostPropertyScreen({ route, navigation }) {
   const [newImages, setNewImages] = useState([]);
   const [existing, setExisting] = useState([]);
   const [removed, setRemoved] = useState([]);
+
+  const { cities, singleCity, localitiesOf } = useConfig();
+  useEffect(() => {
+    if (!id && singleCity) {
+      setF((x) => (x.address.city ? x : { ...x, address: { ...x.address, city: singleCity.name, state: singleCity.state }, lat: x.lat ?? singleCity.lat, lng: x.lng ?? singleCity.lng }));
+    }
+  }, [id, singleCity]);
 
   const editing = useQuery({ queryKey: ['property', id], queryFn: () => api.properties.get(id), enabled: Boolean(id) });
   useEffect(() => {
@@ -178,12 +186,24 @@ export default function PostPropertyScreen({ route, navigation }) {
           <>
             <Txt bold size={14} style={{ marginBottom: 8 }}>{t('city')}</Txt>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
-              {CITIES.map((c) => (
+              {cities.map((c) => (
                 <Chip key={c.name} label={c.name} active={f.address.city === c.name} onPress={() => setF((x) => ({ ...x, address: { ...x.address, city: c.name, state: c.state }, lat: x.lat ?? c.lat, lng: x.lng ?? c.lng }))} />
               ))}
             </View>
             {errs['address.city'] ? <Txt size={12} style={{ color: colors.danger, marginBottom: 8 }}>{errs['address.city']}</Txt> : <View style={{ height: 8 }} />}
-            <Input label={t('locality')} value={f.address.locality} onChangeText={(v) => setAddr('locality', v)} error={errs['address.locality']} />
+            {singleCity ? <Txt muted size={12} style={{ marginBottom: 10 }}>We're currently accepting listings only in {singleCity.name}.</Txt> : null}
+            <Txt bold size={14} style={{ marginBottom: 8 }}>{t('locality')}</Txt>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 10 }}>
+              {localitiesOf(f.address.city).map((l) => (
+                <Chip
+                  key={l.name}
+                  label={l.name}
+                  active={f.address.locality === l.name}
+                  onPress={() => setF((x) => ({ ...x, address: { ...x.address, locality: l.name, pincode: x.address.pincode || l.pincode }, lat: l.lat, lng: l.lng }))}
+                />
+              ))}
+            </ScrollView>
+            <Input placeholder="Or type the area name" value={f.address.locality} onChangeText={(v) => setAddr('locality', v)} error={errs['address.locality']} />
             <Input label="Address line" value={f.address.line} onChangeText={(v) => setAddr('line', v)} error={errs['address.line']} />
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}><Input label="State" value={f.address.state} onChangeText={(v) => setAddr('state', v)} error={errs['address.state']} /></View>

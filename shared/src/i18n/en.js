@@ -1,6 +1,7 @@
 export default {
   appName: 'PropertyHub',
   tagline: 'Find a home you love, anywhere in India',
+  taglineCity: 'Find a home you love in {{city}}',
   heroSubtitle: 'Verified apartments, villas, plots and offices for sale and rent',
   search: 'Search',
   searchPlaceholder: 'Search city, locality or project',

@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, BarChart3, Building2, Check, Coins, CreditCard, Search, Settings, ShieldAlert, Star, Tag, Users, X } from 'lucide-react';
-import { apiErrorMessage, formatINR, formatPriceShort } from '@propertyhub/shared';
+import { AlertTriangle, BarChart3, Building2, Check, ClipboardCheck, Coins, CreditCard, MapPin, Search, Settings, ShieldAlert, Star, Tag, Users, X } from 'lucide-react';
+import { ALL_CITIES, apiErrorMessage, formatINR, formatPriceShort } from '@propertyhub/shared';
+import ReviewQueue from './ReviewQueue';
 import { api } from '../../lib/api';
 import { useToast } from '../../context/ToastContext';
 import BarChart from '../../components/BarChart';
 import { EmptyState, ErrorState, Field, ListSkeleton, Modal, PageHeader, Seo, Spinner, StatusBadge } from '../../components/ui';
 
 const TABS = [
+  { id: 'review', label: 'Review queue', icon: ClipboardCheck },
   { id: 'overview', label: 'Overview', icon: BarChart3 },
-  { id: 'listings', label: 'Listings', icon: Building2 },
+  { id: 'listings', label: 'All listings', icon: Building2 },
   { id: 'users', label: 'Users & credits', icon: Users },
   { id: 'plans', label: 'Plans & settings', icon: Settings },
   { id: 'orders', label: 'Orders', icon: CreditCard },
@@ -111,7 +113,7 @@ function Overview() {
 }
 
 function Listings() {
-  const [status, setStatus] = useState('pending');
+  const [status, setStatus] = useState('approved');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const [rejecting, setRejecting] = useState(null);
@@ -125,7 +127,7 @@ function Listings() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap gap-2">
-        {['pending', 'approved', 'rejected', 'sold', 'rented', ''].map((s) => (
+        {['approved', 'pending', 'rejected', 'sold', 'rented', ''].map((s) => (
           <button key={s} onClick={() => { setStatus(s); setPage(1); }} className={`chip border px-3 py-1.5 text-sm capitalize ${status === s ? 'border-brand-900 bg-brand-900 text-white' : 'border-slate-300 dark:border-slate-700'}`}>
             {s || 'All'}
           </button>
@@ -271,6 +273,50 @@ function PlanEditor({ plan, onDone }) {
   );
 }
 
+function LiveCities() {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const settings = useQuery({ queryKey: ['adminSettings'], queryFn: api.admin.settings });
+  const [sel, setSel] = useState(null);
+  const current = sel || settings.data?.activeCities || [];
+  const save = useMutation({
+    mutationFn: () => api.admin.updateSettings({ activeCities: current }),
+    onSuccess: () => {
+      toast('Live cities updated', 'success');
+      setSel(null);
+      ['adminSettings', 'config', 'properties', 'featured'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
+    },
+    onError: (e) => toast(apiErrorMessage(e), 'error'),
+  });
+  return (
+    <div className="card p-5 lg:col-span-2">
+      <h3 className="mb-1 flex items-center gap-2 font-semibold"><MapPin className="size-4 text-accent-600" /> Live cities</h3>
+      <p className="mb-4 text-sm text-slate-500">
+        Only listings in live cities are shown to the public, and owners can post only in these cities. Listings elsewhere are kept but hidden until you switch the city on.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {ALL_CITIES.map((c) => {
+          const on = current.includes(c.name);
+          return (
+            <button
+              key={c.name}
+              onClick={() => setSel(on ? current.filter((x) => x !== c.name) : [...current, c.name])}
+              className={`chip border px-3 py-1.5 text-sm ${on ? 'border-accent-600 bg-accent-600 text-white' : 'border-slate-300 dark:border-slate-700'}`}
+              aria-pressed={on}
+            >
+              {on && <Check className="size-3.5" />} {c.name}
+            </button>
+          );
+        })}
+      </div>
+      <button className="btn-primary mt-4" disabled={!sel || !current.length || save.isPending} onClick={() => save.mutate()}>
+        {save.isPending && <Spinner className="size-4" />} Save live cities
+      </button>
+      {sel && !current.length && <p className="mt-2 text-sm text-red-600">At least one city must stay live.</p>}
+    </div>
+  );
+}
+
 function Plans() {
   const plans = useQuery({ queryKey: ['adminPlans'], queryFn: api.admin.plans });
   const settings = useQuery({ queryKey: ['adminSettings'], queryFn: api.admin.settings });
@@ -310,6 +356,7 @@ function Plans() {
         )}
         <p className="mt-3 text-xs text-slate-500">Applies to accounts created after the change. Existing balances are not affected.</p>
       </div>
+      <LiveCities />
       <Modal open={editing !== undefined} onClose={() => setEditing(undefined)} title={editing ? 'Edit plan' : 'New plan'}>
         {editing !== undefined && <PlanEditor plan={editing} onDone={() => setEditing(undefined)} />}
       </Modal>
@@ -430,8 +477,10 @@ function Security() {
 }
 
 export default function Admin() {
-  const [tab, setTab] = useState('overview');
-  const Tab = { overview: Overview, listings: Listings, users: UsersTab, plans: Plans, orders: Orders, promos: Promos, security: Security }[tab];
+  const [tab, setTab] = useState('review');
+  const stats = useQuery({ queryKey: ['adminStats'], queryFn: api.admin.stats });
+  const pending = stats.data?.properties?.pending || 0;
+  const Tab = { review: ReviewQueue, overview: Overview, listings: Listings, users: UsersTab, plans: Plans, orders: Orders, promos: Promos, security: Security }[tab];
   return (
     <div className="container-x py-8">
       <Seo title="Admin" noindex />
@@ -440,6 +489,9 @@ export default function Admin() {
         {TABS.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setTab(id)} className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium ${tab === id ? 'border-accent-600 text-accent-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}>
             <Icon className="size-4" /> {label}
+            {id === 'review' && pending > 0 && (
+              <span className="grid min-w-5 place-items-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white">{pending}</span>
+            )}
           </button>
         ))}
       </div>

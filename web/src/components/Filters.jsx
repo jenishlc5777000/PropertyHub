@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AMENITIES, CITIES, FURNISHING, PROPERTY_TYPES, titleCase } from '@propertyhub/shared';
+import { AMENITIES, FURNISHING, PROPERTY_TYPES, titleCase } from '@propertyhub/shared';
+import { useConfig } from '../hooks/useData';
 
 const PRICE_SALE = [0, 2500000, 5000000, 7500000, 10000000, 20000000, 50000000, 100000000];
 const PRICE_RENT = [0, 10000, 20000, 30000, 50000, 75000, 100000, 200000];
@@ -9,7 +10,11 @@ const label = (n) => (n >= 1e7 ? `₹${n / 1e7} Cr` : n >= 1e5 ? `₹${n / 1e5} 
 /** Filter panel bound to URL search params (so filtered results are shareable / SEO friendly). */
 export default function Filters({ params, onApply }) {
   const { t } = useTranslation();
+  const { cities, singleCity } = useConfig();
   const [f, setF] = useState(() => Object.fromEntries(params));
+  const localities = cities
+    .filter((c) => !f.city || c.name === f.city)
+    .flatMap((c) => c.localities.map((l) => ({ ...l, city: c.name })));
   useEffect(() => {
     setF(Object.fromEntries(params));
   }, [params]);
@@ -41,19 +46,32 @@ export default function Filters({ params, onApply }) {
         ))}
       </div>
 
-      <label className="block">
-        <span className="label">{t('city')}</span>
-        <select className="input" value={f.city || ''} onChange={(e) => set('city', e.target.value)}>
-          <option value="">{t('any')}</option>
-          {CITIES.map((c) => (
-            <option key={c.name} value={c.name}>{c.name}</option>
-          ))}
-        </select>
-      </label>
+      {singleCity ? null : (
+        <label className="block">
+          <span className="label">{t('city')}</span>
+          <select className="input" value={f.city || ''} onChange={(e) => setF((x) => ({ ...x, city: e.target.value, locality: '' }))}>
+            <option value="">{t('any')}</option>
+            {cities.map((c) => (
+              <option key={c.name} value={c.name}>{c.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <label className="block">
-        <span className="label">{t('locality')}</span>
-        <input className="input" value={f.locality || ''} onChange={(e) => set('locality', e.target.value)} placeholder="e.g. Whitefield" />
+        <span className="label">
+          {t('locality')}
+          {singleCity ? ` · ${singleCity.name}` : ''}
+        </span>
+        <select className="input" value={f.locality || ''} onChange={(e) => set('locality', e.target.value)}>
+          <option value="">{t('any')}</option>
+          {localities.map((l) => (
+            <option key={`${l.city}-${l.name}`} value={l.name}>
+              {l.name}
+              {singleCity ? '' : ` (${l.city})`}
+            </option>
+          ))}
+        </select>
       </label>
 
       <label className="block">

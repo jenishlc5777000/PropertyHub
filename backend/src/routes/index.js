@@ -9,10 +9,13 @@ import notificationRoutes from './notification.routes.js';
 import creditRoutes from './credit.routes.js';
 import paymentRoutes from './payment.routes.js';
 import adminRoutes from './admin.routes.js';
+import { getConfig } from '../controllers/config.controller.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = Router();
 
 router.get('/health', (_req, res) => res.json({ success: true, data: { status: 'ok', time: new Date() } }));
+router.get('/config', asyncHandler(getConfig));
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/properties', propertyRoutes);

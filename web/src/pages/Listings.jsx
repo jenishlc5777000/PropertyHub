@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { List, LocateFixed, Map as MapIcon, SearchX, SlidersHorizontal, X } from 'lucide-react';
+import { Info, List, LocateFixed, Map as MapIcon, SearchX, SlidersHorizontal, X } from 'lucide-react';
+import { RADIUS_OPTIONS_KM, SERVICE_RADIUS_KM, nearestCity } from '@propertyhub/shared';
+import { useConfig } from '../hooks/useData';
 import { api } from '../lib/api';
 import Filters from '../components/Filters';
 import PropertyCard from '../components/PropertyCard';
@@ -18,9 +20,16 @@ export default function Listings() {
   const [params, setParams] = useSearchParams();
   const [view, setView] = useState('list');
   const [showFilters, setShowFilters] = useState(false);
-  const [near, setNear] = useState(null); // { lat, lng, radiusKm }
+  const [near, setNear] = useState(null); // { lat, lng }
+  const [radiusKm, setRadiusKm] = useState(5);
   const [locating, setLocating] = useState(false);
-  const filters = useMemo(() => clean(Object.fromEntries(params)), [params]);
+  const [outside, setOutside] = useState(null); // nearest live city when the user is out of area
+  const { cities, singleCity } = useConfig();
+  const filters = useMemo(() => {
+    const f = clean(Object.fromEntries(params));
+    delete f.near;
+    return f;
+  }, [params]);
 
   const list = useInfiniteQuery({
     queryKey: ['properties', filters],
@@ -30,9 +39,10 @@ export default function Listings() {
     enabled: !near,
   });
 
+  const nearParams = clean({ purpose: filters.purpose, type: filters.type, beds: filters.beds, minPrice: filters.minPrice, maxPrice: filters.maxPrice });
   const nearQ = useQuery({
-    queryKey: ['near', near, filters.purpose],
-    queryFn: () => api.properties.near({ ...near, purpose: filters.purpose }),
+    queryKey: ['near', near, radiusKm, nearParams],
+    queryFn: () => api.properties.near({ ...near, radiusKm, ...nearParams }),
     enabled: Boolean(near),
   });
 
@@ -52,7 +62,6 @@ export default function Listings() {
   }, [list, near, view]);
 
   const apply = (f) => {
-    setNear(null);
     setParams(clean(f));
     setShowFilters(false);
   };
@@ -63,7 +72,15 @@ export default function Listings() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
-        setNear({ lat: pos.coords.latitude, lng: pos.coords.longitude, radiusKm: 15 });
+        const { latitude: lat, longitude: lng } = pos.coords;
+        const closest = nearestCity(lat, lng, cities);
+        if (closest && closest.distanceKm > SERVICE_RADIUS_KM) {
+          setOutside(closest);
+          setNear(null);
+          return;
+        }
+        setOutside(null);
+        setNear({ lat, lng });
       },
       () => {
         setLocating(false);
@@ -73,7 +90,15 @@ export default function Listings() {
     );
   };
 
-  const title = ['', filters.type && `${filters.type}s`, filters.purpose === 'rent' ? 'for rent' : filters.purpose === 'sale' ? 'for sale' : '', filters.city && `in ${filters.city}`]
+  // "Near me" chip on the home page links here with ?near=1
+  const autoNear = params.get('near') === '1';
+  useEffect(() => {
+    if (autoNear) findNearMe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoNear]);
+
+  const place = filters.locality ? `in ${filters.locality}` : filters.city ? `in ${filters.city}` : singleCity ? `in ${singleCity.name}` : '';
+  const title = ['', filters.type && `${filters.type}s`, filters.purpose === 'rent' ? 'for rent' : filters.purpose === 'sale' ? 'for sale' : '', place]
     .filter(Boolean)
     .join(' ');
   const heading = filters.type ? title.trim().charAt(0).toUpperCase() + title.trim().slice(1) : `Properties ${title.trim()}`.trim();
@@ -83,12 +108,21 @@ export default function Listings() {
       <Seo title={heading} description={`Browse ${heading.toLowerCase()} on PropertyHub. Verified listings with photos, prices and direct owner contact.`} path={`/properties?${params}`} />
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{near ? `${t('nearMe')} (${near.radiusKm} km)` : heading}</h1>
-          {total != null && <p className="text-sm text-slate-500">{t('results', { count: total })}</p>}
+          <h1 className="text-2xl font-bold tracking-tight">{near ? `${t('nearMe')} · within ${radiusKm} km` : heading}</h1>
+          {total != null && <p className="text-sm text-slate-500">{t('results', { count: total })}{near ? ' · nearest first' : ''}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {near ? (
-            <button className="btn-outline" onClick={() => setNear(null)}><X className="size-4" /> {t('nearMe')}</button>
+            <>
+              <div className="flex rounded-xl border border-slate-300 p-0.5 dark:border-slate-700" role="group" aria-label="Search radius">
+                {RADIUS_OPTIONS_KM.map((r) => (
+                  <button key={r} onClick={() => setRadiusKm(r)} className={`rounded-lg px-2.5 py-1.5 text-sm font-medium ${radiusKm === r ? 'bg-accent-600 text-white' : ''}`}>
+                    {r} km
+                  </button>
+                ))}
+              </div>
+              <button className="btn-outline" onClick={() => setNear(null)}><X className="size-4" /> {t('nearMe')}</button>
+            </>
           ) : (
             <button className="btn-outline" onClick={findNearMe} disabled={locating}>
               {locating ? <Spinner className="size-4" /> : <LocateFixed className="size-4" />} {t('nearMe')}
@@ -113,6 +147,19 @@ export default function Listings() {
         </div>
       </div>
 
+      {outside && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          <Info className="mt-0.5 size-5 shrink-0" />
+          <div className="flex-1">
+            <p className="font-semibold">PropertyHub isn't available in your area yet.</p>
+            <p>
+              We're currently live only in {cities.map((c) => c.name).join(', ')} (about {Math.round(outside.distanceKm)} km from you). Here are listings in {outside.name}.
+            </p>
+          </div>
+          <button onClick={() => setOutside(null)} aria-label="Dismiss"><X className="size-4" /></button>
+        </div>
+      )}
+
       <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
         <aside className="hidden lg:block">
           <div className="card sticky top-20 p-5">
@@ -127,9 +174,26 @@ export default function Listings() {
           ) : active.isError ? (
             <ErrorState error={active.error} onRetry={active.refetch} />
           ) : !items.length ? (
-            <EmptyState icon={SearchX} title="No properties match your filters" text="Try widening the price range, removing amenities or searching another locality." action={<button className="btn-primary" onClick={() => apply({})}>{t('reset')}</button>} />
+            near ? (
+              <EmptyState
+                icon={LocateFixed}
+                title={`No properties within ${radiusKm} km of you`}
+                text="Try a wider radius or browse by locality."
+                action={
+                  radiusKm < 20 ? (
+                    <button className="btn-primary" onClick={() => setRadiusKm(RADIUS_OPTIONS_KM.find((r) => r > radiusKm))}>
+                      Search within {RADIUS_OPTIONS_KM.find((r) => r > radiusKm)} km
+                    </button>
+                  ) : (
+                    <button className="btn-outline" onClick={() => setNear(null)}>Show all</button>
+                  )
+                }
+              />
+            ) : (
+              <EmptyState icon={SearchX} title="No properties match your filters" text="Try widening the price range, removing amenities or searching another locality." action={<button className="btn-primary" onClick={() => apply({})}>{t('reset')}</button>} />
+            )
           ) : view === 'map' ? (
-            <MapView properties={items} center={near ? [near.lat, near.lng] : undefined} radiusKm={near?.radiusKm} className="h-[70vh]" />
+            <MapView properties={items} center={near ? [near.lat, near.lng] : undefined} radiusKm={near ? radiusKm : undefined} className="h-[70vh]" />
           ) : (
             <>
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">

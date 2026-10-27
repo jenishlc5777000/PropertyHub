@@ -1,15 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { AMENITIES, CITIES, FURNISHING, PROPERTY_TYPES, titleCase } from '@propertyhub/shared';
+import { AMENITIES, FURNISHING, PROPERTY_TYPES, RADIUS_OPTIONS_KM, SERVICE_RADIUS_KM, nearestCity, titleCase } from '@propertyhub/shared';
 import { api } from '../api';
 import { useTheme } from '../theme';
 import { useAuth } from '../context/AuthContext';
-import { useBalance } from '../hooks';
+import { useBalance, useConfig } from '../hooks';
 import PropertyCard from '../components/PropertyCard';
 import OsmMap from '../components/OsmMap';
 import { Button, Chip, EmptyState, ErrorState, ListSkeleton, Sheet, Txt } from '../components/ui';
@@ -55,6 +55,8 @@ export function HomeScreen({ navigation }) {
   const { colors } = useTheme();
   const { user } = useAuth();
   const [q, setQ] = useState('');
+  const { cities, singleCity } = useConfig();
+  const areas = cities.flatMap((c) => c.localities.map((l) => ({ ...l, city: c.name })));
   const featured = useQuery({ queryKey: ['featured'], queryFn: api.properties.featured });
   const latest = useQuery({ queryKey: ['properties', { sort: 'newest', limit: 8, boost: '0' }], queryFn: () => api.properties.list({ sort: 'newest', limit: 8, boost: '0' }) });
   const notifs = useQuery({ queryKey: ['notifications'], queryFn: api.notifications.list, enabled: Boolean(user) });
@@ -79,7 +81,8 @@ export function HomeScreen({ navigation }) {
               <Pressable onPress={() => navigation.navigate('Login')}><Txt bold style={{ color: '#fff' }}>{t('login')}</Txt></Pressable>
             )}
           </View>
-          <Txt bold size={24} style={{ color: '#fff', marginTop: 18 }}>{t('tagline')}</Txt>
+          <Txt size={12} bold style={{ color: '#10b981', marginTop: 16 }}>📍 Now live in {cities.map((c) => c.name).join(', ')}</Txt>
+          <Txt bold size={24} style={{ color: '#fff', marginTop: 4 }}>{singleCity ? t('taglineCity', { city: singleCity.name }) : t('tagline')}</Txt>
           {user ? <View style={{ marginTop: 10, alignSelf: 'flex-start' }}><CreditPill /></View> : null}
           <View style={{ flexDirection: 'row', marginTop: 16, backgroundColor: colors.card, borderRadius: 14, alignItems: 'center', paddingHorizontal: 12 }}>
             <Ionicons name="search" size={18} color={colors.muted} />
@@ -101,7 +104,10 @@ export function HomeScreen({ navigation }) {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 8 }}>
-          {CITIES.map((c) => <Chip key={c.name} label={c.name} onPress={() => go({ city: c.name })} />)}
+          <Chip label={`📍 ${t('nearMe')}`} active onPress={() => navigation.navigate('Map', { autoNear: Date.now() })} />
+          {areas.map((a) => (
+            <Chip key={`${a.city}|${a.name}`} label={singleCity ? a.name : `${a.name}, ${a.city}`} onPress={() => go({ locality: a.name, ...(singleCity ? {} : { city: a.city }) })} />
+          ))}
         </ScrollView>
 
         <Txt bold size={19} style={{ marginHorizontal: 16, marginBottom: 12 }}>{t('featured')}</Txt>
@@ -127,6 +133,8 @@ const priceLabel = (n) => (n >= 1e7 ? `₹${n / 1e7}Cr` : n >= 1e5 ? `₹${n / 1
 function FilterSheet({ visible, onClose, value, onApply }) {
   const { t } = useTranslation();
   const [f, setF] = useState(value);
+  const { cities, singleCity } = useConfig();
+  const localities = cities.filter((c) => !f.city || c.name === f.city).flatMap((c) => c.localities);
   const set = (k, v) => setF((x) => ({ ...x, [k]: x[k] === v ? '' : v }));
   const amen = f.amenities || [];
   const prices = PRICE[f.purpose || 'sale'];
@@ -142,8 +150,13 @@ function FilterSheet({ visible, onClose, value, onApply }) {
         <Section title={t('purpose')}>
           {['sale', 'rent'].map((p) => <Chip key={p} label={p === 'sale' ? t('buy') : t('rent')} active={f.purpose === p} onPress={() => setF({ ...f, purpose: f.purpose === p ? '' : p, minPrice: '', maxPrice: '' })} />)}
         </Section>
-        <Section title={t('city')}>
-          {CITIES.map((c) => <Chip key={c.name} label={c.name} active={f.city === c.name} onPress={() => set('city', c.name)} />)}
+        {singleCity ? null : (
+          <Section title={t('city')}>
+            {cities.map((c) => <Chip key={c.name} label={c.name} active={f.city === c.name} onPress={() => setF({ ...f, city: f.city === c.name ? '' : c.name, locality: '' })} />)}
+          </Section>
+        )}
+        <Section title={`${t('locality')}${singleCity ? ` · ${singleCity.name}` : ''}`}>
+          {localities.map((l) => <Chip key={l.name} label={l.name} active={f.locality === l.name} onPress={() => set('locality', l.name)} />)}
         </Section>
         <Section title={t('type')}>
           {PROPERTY_TYPES.map((x) => <Chip key={x} label={titleCase(x)} active={f.type === x} onPress={() => set('type', x)} />)}
@@ -256,15 +269,18 @@ export function SearchScreen({ route }) {
   );
 }
 
-export function MapScreen({ navigation }) {
+export function MapScreen({ navigation, route }) {
   const { t } = useTranslation();
   const { colors } = useTheme();
-  const [near, setNear] = useState(null);
+  const { cities } = useConfig();
+  const [near, setNear] = useState(null); // { lat, lng }
+  const [radiusKm, setRadiusKm] = useState(5);
+  const [outside, setOutside] = useState(null);
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState('');
   const [purpose, setPurpose] = useState('');
   const all = useQuery({ queryKey: ['properties', { limit: 50, purpose }], queryFn: () => api.properties.list(clean({ limit: 50, purpose })), enabled: !near });
-  const nearQ = useQuery({ queryKey: ['near', near, purpose], queryFn: () => api.properties.near(clean({ ...near, purpose })), enabled: Boolean(near) });
+  const nearQ = useQuery({ queryKey: ['near', near, radiusKm, purpose], queryFn: () => api.properties.near(clean({ ...near, radiusKm, purpose })), enabled: Boolean(near) });
   const q = near ? nearQ : all;
   const items = near ? nearQ.data || [] : all.data?.items || [];
 
@@ -278,13 +294,28 @@ export function MapScreen({ navigation }) {
         return;
       }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setNear({ lat: pos.coords.latitude, lng: pos.coords.longitude, radiusKm: 15 });
+      const { latitude: lat, longitude: lng } = pos.coords;
+      const closest = nearestCity(lat, lng, cities);
+      if (closest && closest.distanceKm > SERVICE_RADIUS_KM) {
+        setOutside(closest);
+        setNear(null);
+        return;
+      }
+      setOutside(null);
+      setNear({ lat, lng });
     } catch {
       setLocError('Could not get your location');
     } finally {
       setLocating(false);
     }
   };
+
+  // "Near me" chip on Home opens this tab with autoNear
+  const autoNear = route.params?.autoNear;
+  useEffect(() => {
+    if (autoNear) findNearMe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoNear]);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -302,7 +333,20 @@ export function MapScreen({ navigation }) {
           onPress={() => (near ? setNear(null) : findNearMe())}
         />
       </View>
+      {near ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingBottom: 8 }} style={{ flexGrow: 0 }}>
+          {RADIUS_OPTIONS_KM.map((r) => <Chip key={r} label={`${r} km`} active={radiusKm === r} onPress={() => setRadiusKm(r)} />)}
+        </ScrollView>
+      ) : null}
       {locError ? <Txt size={13} style={{ color: colors.danger, paddingHorizontal: 12 }}>{locError}</Txt> : null}
+      {outside ? (
+        <View style={{ marginHorizontal: 12, marginBottom: 8, padding: 12, borderRadius: 12, backgroundColor: '#fef3c7' }}>
+          <Txt bold size={14} style={{ color: '#92400e' }}>PropertyHub isn't in your area yet</Txt>
+          <Txt size={13} style={{ color: '#92400e' }}>
+            We're live only in {cities.map((c) => c.name).join(', ')} (about {Math.round(outside.distanceKm)} km away). Showing {outside.name} listings.
+          </Txt>
+        </View>
+      ) : null}
       {q.isError ? (
         <ErrorState error={q.error} onRetry={q.refetch} />
       ) : (
@@ -310,7 +354,7 @@ export function MapScreen({ navigation }) {
           <OsmMap
             properties={items}
             center={near ? [near.lat, near.lng] : undefined}
-            radiusKm={near?.radiusKm}
+            radiusKm={near ? radiusKm : undefined}
             onSelect={(id) => {
               const p = items.find((x) => x._id === id);
               if (p) navigation.navigate('PropertyDetail', { slug: p.slug });
@@ -319,7 +363,10 @@ export function MapScreen({ navigation }) {
           {q.isLoading ? <ActivityIndicator style={{ position: 'absolute', top: 16, alignSelf: 'center' }} color={colors.accent} /> : null}
           {!q.isLoading && near && !items.length ? (
             <View style={{ position: 'absolute', bottom: 20, left: 20, right: 20, backgroundColor: colors.card, padding: 14, borderRadius: 12 }}>
-              <Txt>No properties within {near.radiusKm} km of you.</Txt>
+              <Txt>No properties within {radiusKm} km of you.</Txt>
+              {radiusKm < 20 ? (
+                <Button small title={`Search within ${RADIUS_OPTIONS_KM.find((r) => r > radiusKm)} km`} onPress={() => setRadiusKm(RADIUS_OPTIONS_KM.find((r) => r > radiusKm))} style={{ marginTop: 8 }} />
+              ) : null}
             </View>
           ) : null}
         </View>

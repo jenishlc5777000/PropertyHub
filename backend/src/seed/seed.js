@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { slugify } from '@propertyhub/shared';
+import { slugify, LOCALITIES } from '@propertyhub/shared';
 import { env } from '../config/env.js';
 import { connectDB, disconnectDB } from '../config/db.js';
 import { User, Property, Plan, Setting, CreditWallet, PromoCode } from '../models/index.js';
@@ -11,15 +11,6 @@ const EXTERIOR = ['1568605114967-8130f3a36994', '1570129477492-45c003edd2be', '1
 const INTERIOR = ['1502672260266-1c1ef2d93688', '1522708323590-d24dbb6b0267', '1493809842364-78817add7ffb', '1484154218962-a197022b5858', '1560448204-e02f11c3d0e2', '1505691938895-1758d7feb511'];
 const OFFICE = ['1486406146926-c627a92ad1ab', '1497366216548-37526070297c'];
 
-const LOCALITIES = {
-  Mumbai: { state: 'Maharashtra', pin: '400', spots: [['Andheri West', 19.1364, 72.8296], ['Powai', 19.1176, 72.906], ['Bandra West', 19.0596, 72.8295], ['Thane West', 19.2183, 72.9781], ['Malad West', 19.1874, 72.8484]] },
-  Bengaluru: { state: 'Karnataka', pin: '560', spots: [['Whitefield', 12.9698, 77.75], ['Koramangala', 12.9352, 77.6245], ['HSR Layout', 12.9116, 77.6474], ['Indiranagar', 12.9784, 77.6408], ['Electronic City', 12.8399, 77.677]] },
-  Delhi: { state: 'Delhi', pin: '110', spots: [['Dwarka', 28.5921, 77.046], ['Saket', 28.5245, 77.2066], ['Vasant Kunj', 28.5293, 77.1525]] },
-  Gurugram: { state: 'Haryana', pin: '122', spots: [['DLF Phase 3', 28.4931, 77.0935], ['Sohna Road', 28.4089, 77.0418]] },
-  Pune: { state: 'Maharashtra', pin: '411', spots: [['Hinjewadi', 18.5913, 73.7389], ['Baner', 18.559, 73.7868], ['Kharadi', 18.5515, 73.9348]] },
-  Hyderabad: { state: 'Telangana', pin: '500', spots: [['Gachibowli', 17.44, 78.3489], ['Madhapur', 17.4483, 78.3915], ['Kondapur', 17.4622, 78.3568]] },
-  Chennai: { state: 'Tamil Nadu', pin: '600', spots: [['OMR Sholinganallur', 12.901, 80.2279], ['Anna Nagar', 13.085, 80.2101], ['Velachery', 12.9815, 80.218]] },
-};
 
 // [type, purpose, beds, baths, area, price, furnishing, cityIndexHint]
 const TEMPLATES = [
@@ -104,9 +95,9 @@ export async function seed({ reset = false } = {}) {
 
   await mkUser({ name: 'PropertyHub Admin', email: env.seed.adminEmail, phone: '9000000001', role: 'admin' }, env.seed.adminPassword);
   const agents = [
-    await mkUser({ name: 'Priya Sharma', email: 'priya@propertyhub.in', phone: '9876543210', whatsapp: '9876543210', role: 'agent', bio: 'RERA-registered agent covering Mumbai and Pune for 9 years.' }, 'Agent@12345'),
-    await mkUser({ name: 'Arjun Reddy', email: 'arjun@propertyhub.in', phone: '9845012345', whatsapp: '9845012345', role: 'agent', bio: 'Helping families find homes in Bengaluru, Hyderabad and Chennai.' }, 'Agent@12345'),
-    await mkUser({ name: 'Rohit Verma', email: 'rohit@propertyhub.in', phone: '9811122233', whatsapp: '9811122233', role: 'agent', bio: 'Delhi NCR residential and commercial specialist.' }, 'Agent@12345'),
+    await mkUser({ name: 'Priya Sharma', email: 'priya@propertyhub.in', phone: '9876543210', whatsapp: '9876543210', role: 'agent', bio: 'RERA-registered agent covering South Chennai and OMR for 9 years.' }, 'Agent@12345'),
+    await mkUser({ name: 'Arjun Reddy', email: 'arjun@propertyhub.in', phone: '9845012345', whatsapp: '9845012345', role: 'agent', bio: 'Helping families find homes in Anna Nagar, T. Nagar and West Chennai.' }, 'Agent@12345'),
+    await mkUser({ name: 'Rohit Verma', email: 'rohit@propertyhub.in', phone: '9811122233', whatsapp: '9811122233', role: 'agent', bio: 'Chennai residential and commercial specialist (GST Road, Tambaram, Porur).' }, 'Agent@12345'),
   ];
   await mkUser({ name: 'Demo Buyer', email: 'buyer@propertyhub.in', phone: '9123456780', role: 'buyer' }, 'Buyer@12345');
 
@@ -115,15 +106,14 @@ export async function seed({ reset = false } = {}) {
     return;
   }
 
-  const cities = Object.entries(LOCALITIES);
-  const agentFor = (city) => (['Mumbai', 'Pune'].includes(city) ? agents[0] : ['Delhi', 'Gurugram'].includes(city) ? agents[2] : agents[1]);
+  // Launch market: Chennai only. Listings spread across its localities.
+  const city = 'Chennai';
+  const spots = LOCALITIES[city];
   const docs = [];
   for (let i = 0; i < 30; i++) {
-    const [city, info] = cities[i % cities.length];
-    const [loc, lat, lng] = pick(info.spots, Math.floor(i / cities.length));
+    const { name: loc, lat, lng, pincode } = pick(spots, i);
     const [type, purpose, beds, baths, area, basePrice, furnishing] = pick(TEMPLATES, i);
-    const cityFactor = { Mumbai: 1.6, Delhi: 1.3, Gurugram: 1.2, Bengaluru: 1.1, Pune: 0.9, Hyderabad: 0.95, Chennai: 0.9 }[city];
-    const price = Math.round((basePrice * cityFactor) / (purpose === 'rent' ? 500 : 50000)) * (purpose === 'rent' ? 500 : 50000);
+    const price = Math.round((basePrice * 0.9) / (purpose === 'rent' ? 500 : 50000)) * (purpose === 'rent' ? 500 : 50000);
     const pool = type === 'commercial' ? OFFICE.concat(INTERIOR.slice(0, 2)) : type === 'plot' ? EXTERIOR : [pick(EXTERIOR, i), ...INTERIOR];
     const images = Array.from({ length: type === 'plot' ? 2 : 4 }, (_, k) => img(pick(pool, i + k)));
     const title = TITLES[type](beds, loc);
@@ -140,14 +130,15 @@ export async function seed({ reset = false } = {}) {
       bathrooms: baths,
       furnishing,
       amenities: amen,
-      address: { line: `${100 + i}, ${loc} Main Road`, locality: loc, city, state: info.state, pincode: `${info.pin}${String(10 + (i % 90)).padStart(3, '0')}` },
+      address: { line: `${100 + i}, ${loc} Main Road`, locality: loc, city, state: 'Tamil Nadu', pincode },
       location: { type: 'Point', coordinates: [jitter(lng, i), jitter(lat, i + 3)] },
       images,
-      status: i === 28 || i === 29 ? 'pending' : 'approved',
-      featured: i % 5 === 0 && i < 28,
-      owner: agentFor(city)._id,
+      // the last 3 sit in the admin review queue
+      status: i >= 27 ? 'pending' : 'approved',
+      featured: i % 5 === 0 && i < 27,
+      owner: agents[i % agents.length]._id,
       views: (i * 53) % 400,
-      approvedAt: new Date(),
+      approvedAt: i >= 27 ? undefined : new Date(),
       createdAt: new Date(Date.now() - i * 6 * 3600000),
     });
   }

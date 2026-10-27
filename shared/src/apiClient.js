@@ -51,6 +51,7 @@ export function createApiClient({ axios, baseURL, tokenStore, onLogout }) {
 
   return {
     http,
+    config: () => d(http.get('/config')),
     auth: {
       register: (body) => d(http.post('/auth/register', body)),
       login: (body) => d(http.post('/auth/login', body)),

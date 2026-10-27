@@ -7,6 +7,7 @@ import { notify } from '../services/notification.service.js';
 import { adjustCredits, summarize } from '../services/credit.service.js';
 import { refundOrder } from '../services/payment.service.js';
 import { getSettings, updateSettings } from '../services/settings.service.js';
+import { ALL_CITIES } from '@propertyhub/shared';
 
 const pageParams = (q) => {
   const page = Math.max(1, Number(q.page) || 1);
@@ -99,9 +100,12 @@ export async function listProperties(req, res) {
   const filter = {};
   if (req.query.status) filter.status = String(req.query.status);
   if (req.query.featured === 'true') filter.featured = true;
+  if (req.query.city) filter['address.city'] = String(req.query.city);
   if (req.query.q) filter.title = new RegExp(escapeRegex(String(req.query.q)), 'i');
+  // The review queue is first-in, first-out; everything else newest first.
+  const sort = filter.status === 'pending' ? { updatedAt: 1 } : { createdAt: -1 };
   const [items, total] = await Promise.all([
-    Property.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).populate('owner', OWNER_FIELDS),
+    Property.find(filter).sort(sort).skip(skip).limit(limit).populate('owner', OWNER_FIELDS),
     Property.countDocuments(filter),
   ]);
   ok(res, await serializeMany(items, req.user), paginate(page, limit, total));
@@ -219,9 +223,23 @@ export async function getSettingsCtrl(_req, res) {
 }
 
 export async function updateSettingsCtrl(req, res) {
-  const fc = Number(req.body?.freeCredits);
-  if (!Number.isInteger(fc) || fc < 0 || fc > 1000) throw ApiError.badRequest('freeCredits must be 0-1000');
-  ok(res, await updateSettings({ freeCredits: fc }));
+  const patch = {};
+  if (req.body?.freeCredits !== undefined) {
+    const fc = Number(req.body.freeCredits);
+    if (!Number.isInteger(fc) || fc < 0 || fc > 1000) throw ApiError.badRequest('freeCredits must be 0-1000');
+    patch.freeCredits = fc;
+  }
+  if (req.body?.activeCities !== undefined) {
+    const known = ALL_CITIES.map((c) => c.name);
+    const cities = Array.isArray(req.body.activeCities) ? [...new Set(req.body.activeCities)] : [];
+    if (!cities.length || cities.some((c) => !known.includes(c))) {
+      throw ApiError.badRequest(`activeCities must be a non-empty list from: ${known.join(', ')}`);
+    }
+    patch.activeCities = cities;
+  }
+  if (!Object.keys(patch).length) throw ApiError.badRequest('Nothing to update');
+  await AuditLog.create({ action: 'settings_updated', meta: { patch, by: req.user._id } });
+  ok(res, await updateSettings(patch));
 }
 
 export async function listOrders(req, res) {

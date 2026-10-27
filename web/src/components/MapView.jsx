@@ -12,6 +12,22 @@ const pin = (label, active) =>
     iconSize: [0, 0],
   });
 
+/** Leaflet measures its container once; re-measure when it resizes (e.g. inside a modal or after a layout change). */
+function AutoResize() {
+  const map = useMap();
+  useEffect(() => {
+    const el = map.getContainer();
+    const ro = new ResizeObserver(() => map.invalidateSize());
+    ro.observe(el);
+    const t = setTimeout(() => map.invalidateSize(), 250);
+    return () => {
+      ro.disconnect();
+      clearTimeout(t);
+    };
+  }, [map]);
+  return null;
+}
+
 function FitBounds({ points }) {
   const map = useMap();
   useEffect(() => {
@@ -35,6 +51,7 @@ export default function MapView({ properties = [], center, radiusKm, className =
     <div className={`overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 ${className}`}>
       <MapContainer center={start} zoom={single ? 14 : 5} scrollWheelZoom={!single} className="size-full">
         <TileLayer {...TILE} />
+        <AutoResize />
         <FitBounds points={bounds.length ? bounds : center ? [center] : []} />
         {center && radiusKm && <Circle center={center} radius={radiusKm * 1000} pathOptions={{ color: '#059669', fillOpacity: 0.05 }} />}
         {pts.map((p) => (

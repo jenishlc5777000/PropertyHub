@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { slugify, formatINR, MAX_IMAGES } from '@propertyhub/shared';
+import { slugify, formatINR, distanceKm, MAX_IMAGES } from '@propertyhub/shared';
 import { Property, Favorite, User, Visit, ContactUnlock } from '../models/index.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ok, created, paginate } from '../utils/response.js';
@@ -8,14 +8,16 @@ import { uploadImage, deleteImage } from '../services/upload.service.js';
 import { serializeMany, serializeProperty, unlockedSetFor, OWNER_FIELDS } from '../services/property.service.js';
 import { unlockContact as unlockService } from '../services/credit.service.js';
 import { notify } from '../services/notification.service.js';
+import { getActiveCities, publicPropertyFilter } from '../services/settings.service.js';
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const SORT = { newest: { createdAt: -1 }, price_asc: { price: 1 }, price_desc: { price: -1 } };
 
-function buildFilter(q) {
-  const filter = { status: 'approved' };
+async function buildFilter(q) {
+  const filter = await publicPropertyFilter();
   if (q.q) filter.$text = { $search: q.q };
-  if (q.city) filter['address.city'] = new RegExp(`^${escapeRegex(q.city)}$`, 'i');
+  // A city filter can only narrow within live cities, never widen.
+  if (q.city) filter['address.city'] = { $in: filter['address.city'].$in.filter((c) => c.toLowerCase() === q.city.toLowerCase()) };
   if (q.locality) filter['address.locality'] = new RegExp(escapeRegex(q.locality), 'i');
   if (q.type) filter.type = q.type;
   if (q.purpose) filter.purpose = q.purpose;
@@ -32,7 +34,7 @@ function buildFilter(q) {
 
 export async function list(req, res) {
   const q = req.validQuery;
-  const filter = buildFilter(q);
+  const filter = await buildFilter(q);
   const skip = (q.page - 1) * q.limit;
   const [items, total] = await Promise.all([
     Property.find(filter)
@@ -45,23 +47,22 @@ export async function list(req, res) {
   ok(res, await serializeMany(items, req.user), paginate(q.page, q.limit, total));
 }
 
-function distanceKm(lat1, lng1, lat2, lng2) {
-  const toRad = (d) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return Math.round(6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 10) / 10;
-}
-
 export async function near(req, res) {
-  const { lat, lng, radiusKm, purpose, limit } = req.validQuery;
-  const filter = {
-    status: 'approved',
+  const { lat, lng, radiusKm, purpose, type, minPrice, maxPrice, beds, limit } = req.validQuery;
+  // $nearSphere returns results sorted nearest-first.
+  const filter = await publicPropertyFilter({
     location: {
       $nearSphere: { $geometry: { type: 'Point', coordinates: [lng, lat] }, $maxDistance: radiusKm * 1000 },
     },
-  };
+  });
   if (purpose) filter.purpose = purpose;
+  if (type) filter.type = type;
+  if (beds != null) filter.bedrooms = beds >= 4 ? { $gte: 4 } : beds;
+  if (minPrice != null || maxPrice != null) {
+    filter.price = {};
+    if (minPrice != null) filter.price.$gte = minPrice;
+    if (maxPrice != null) filter.price.$lte = maxPrice;
+  }
   const items = await Property.find(filter).limit(limit).populate('owner', OWNER_FIELDS);
   const out = await serializeMany(items, req.user);
   ok(
@@ -71,7 +72,7 @@ export async function near(req, res) {
 }
 
 export async function featured(req, res) {
-  const items = await Property.find({ status: 'approved', featured: true })
+  const items = await Property.find(await publicPropertyFilter({ featured: true }))
     .sort({ createdAt: -1 })
     .limit(8)
     .populate('owner', OWNER_FIELDS);
@@ -88,7 +89,7 @@ export async function getOne(req, res) {
   if (!p) throw ApiError.notFound('Property not found');
   const isOwner = req.user && String(p.owner?._id) === String(req.user._id);
   const isAdmin = req.user?.role === 'admin';
-  const visible = ['approved', 'sold', 'rented'].includes(p.status);
+  const visible = ['approved', 'sold', 'rented'].includes(p.status) && (await getActiveCities()).includes(p.address.city);
   if (!visible && !isOwner && !isAdmin) throw ApiError.notFound('Property not found');
   if (!isOwner) Property.updateOne({ _id: p._id }, { $inc: { views: 1 } }).exec();
   const unlocked = await unlockedSetFor(req.user, [p._id]);
@@ -101,17 +102,20 @@ export async function similar(req, res) {
   if (!isObjectId(req.params.id)) throw ApiError.notFound();
   const p = await Property.findById(req.params.id).lean();
   if (!p) throw ApiError.notFound('Property not found');
-  const items = await Property.find({
-    _id: { $ne: p._id },
-    status: 'approved',
-    purpose: p.purpose,
-    'address.city': p.address.city,
-    price: { $gte: p.price * 0.6, $lte: p.price * 1.4 },
-  })
-    .sort({ type: p.type === 'apartment' ? 1 : -1, createdAt: -1 })
+  // Same purpose and a similar budget, nearest first (within 10 km).
+  const [lng, lat] = p.location.coordinates;
+  const items = await Property.find(
+    await publicPropertyFilter({
+      _id: { $ne: p._id },
+      purpose: p.purpose,
+      price: { $gte: p.price * 0.5, $lte: p.price * 1.5 },
+      location: { $nearSphere: { $geometry: { type: 'Point', coordinates: [lng, lat] }, $maxDistance: 10000 } },
+    })
+  )
     .limit(6)
     .populate('owner', OWNER_FIELDS);
-  ok(res, await serializeMany(items, req.user));
+  const out = await serializeMany(items, req.user);
+  ok(res, out.map((s) => ({ ...s, distanceKm: distanceKm(lat, lng, s.lat, s.lng) })));
 }
 
 export async function mine(req, res) {
@@ -136,7 +140,15 @@ function toDoc(body) {
   return doc;
 }
 
+async function assertCityServed(city) {
+  const active = await getActiveCities();
+  if (city && !active.includes(city)) {
+    throw new ApiError(400, `We currently accept listings only in ${active.join(', ')}.`, 'CITY_NOT_SERVED', { 'address.city': `Only ${active.join(', ')} for now` });
+  }
+}
+
 export async function create(req, res) {
+  await assertCityServed(req.body.address?.city);
   const files = req.files || [];
   if (!files.length) throw ApiError.badRequest('Add at least one photo');
   const images = await Promise.all(files.slice(0, MAX_IMAGES).map((f) => uploadImage(f.buffer)));
@@ -149,17 +161,16 @@ export async function create(req, res) {
     status: req.user.role === 'admin' ? 'approved' : 'pending',
     approvedAt: req.user.role === 'admin' ? new Date() : undefined,
   });
-  const admins = await User.find({ role: 'admin', isActive: true }).select('_id').lean();
-  admins.forEach((a) =>
-    notify(a._id, {
-      type: 'listing',
-      title: 'New listing awaiting approval',
-      body: property.title,
-      data: { propertyId: String(property._id) },
-    })
-  );
+  if (property.status === 'pending') notifyAdminsForReview(property, 'New listing awaiting approval');
   await property.populate('owner', OWNER_FIELDS);
   created(res, serializeProperty(property, req.user));
+}
+
+async function notifyAdminsForReview(property, title) {
+  const admins = await User.find({ role: 'admin', isActive: true }).select('_id').lean();
+  admins.forEach((a) =>
+    notify(a._id, { type: 'listing', title, body: property.title, data: { propertyId: String(property._id), review: true } })
+  );
 }
 
 async function loadOwned(req) {
@@ -175,6 +186,7 @@ const MODERATED_FIELDS = ['title', 'description', 'type', 'purpose', 'address', 
 export async function update(req, res) {
   const p = await loadOwned(req);
   const { removeImages = [], ...body } = req.body;
+  if (body.address?.city && body.address.city !== p.address.city) await assertCityServed(body.address.city);
   const doc = toDoc(body);
   const oldPrice = p.price;
 
@@ -185,15 +197,27 @@ export async function update(req, res) {
   if (files.length) images = images.concat(await Promise.all(files.map((f) => uploadImage(f.buffer))));
   if (!images.length) throw ApiError.badRequest('A listing needs at least one photo');
 
+  // Forms send every field on save, so compare values: only real content changes go back to review.
+  const before = p.toObject();
+  const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  const contentChanged = MODERATED_FIELDS.some((f) => {
+    if (!(f in doc) || f === 'images') return false;
+    if (f === 'address') return Object.keys(doc.address).some((k) => !same(doc.address[k], before.address?.[k]));
+    if (f === 'location') return !same(doc.location.coordinates, before.location?.coordinates);
+    return !same(doc[f], before[f]);
+  });
   const needsReview =
     req.user.role !== 'admin' &&
-    p.status === 'approved' &&
-    (files.length > 0 || removed.length > 0 || MODERATED_FIELDS.some((f) => f in doc && f !== 'images'));
+    (p.status === 'rejected' || (p.status === 'approved' && (files.length > 0 || removed.length > 0 || contentChanged)));
 
   if (doc.price != null && doc.price < oldPrice) doc.previousPrice = oldPrice;
   Object.assign(p, doc, { images });
-  if (needsReview) p.status = 'pending';
+  if (needsReview) {
+    p.status = 'pending';
+    p.rejectionReason = undefined;
+  }
   await p.save();
+  if (needsReview) notifyAdminsForReview(p, 'Edited listing awaiting re-approval');
   removed.forEach((img) => deleteImage(img.publicId));
 
   if (doc.price != null && doc.price < oldPrice && p.status === 'approved') notifyPriceDrop(p, oldPrice);

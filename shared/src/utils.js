@@ -92,3 +92,25 @@ export function titleCase(s) {
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
 }
+
+/** Great-circle distance in km, rounded to 0.1. */
+export function distanceKm(lat1, lng1, lat2, lng2) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 10) / 10;
+}
+
+/** The nearest live city to a point, with its distance — used to tell users we're not in their area yet. */
+export function nearestCity(lat, lng, cities) {
+  let best = null;
+  for (const c of cities || []) {
+    const d = distanceKm(lat, lng, c.lat, c.lng);
+    if (!best || d < best.distanceKm) best = { ...c, distanceKm: d };
+  }
+  return best;
+}
+
+/** Cities further than this from a user are "not served yet". */
+export const SERVICE_RADIUS_KM = 60;

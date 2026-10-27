@@ -29,6 +29,7 @@ import {
   AgentProfileScreen,
   EmiScreen,
 } from './src/screens/account';
+import { AdminReviewScreen } from './src/screens/admin';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -89,6 +90,7 @@ function RootNavigator({ onboarded, setOnboarded }) {
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: t('notifications') }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: t('settings') }} />
       <Stack.Screen name="Emi" component={EmiScreen} options={{ title: t('emiCalculator') }} />
+      <Stack.Screen name="AdminReview" component={AdminReviewScreen} options={{ title: 'Review queue' }} />
       <Stack.Group screenOptions={{ presentation: 'modal' }}>
         <Stack.Screen name="Login" component={LoginScreen} options={{ title: t('login') }} />
         <Stack.Screen name="Register" component={RegisterScreen} options={{ title: t('register') }} />
@@ -104,7 +106,8 @@ function useNotificationRouting() {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data || {};
       if (!navigationRef.isReady()) return;
-      if (data.inquiryId) navigationRef.navigate('Chat', { id: data.inquiryId });
+      if (data.review) navigationRef.navigate('AdminReview');
+      else if (data.inquiryId) navigationRef.navigate('Chat', { id: data.inquiryId });
       else if (data.slug || data.propertyId) navigationRef.navigate('PropertyDetail', { slug: data.slug || data.propertyId });
       else if (data.type === 'credits' || data.type === 'payment') navigationRef.navigate('Credits');
       else navigationRef.navigate('Notifications');

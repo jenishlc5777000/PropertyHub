@@ -115,6 +115,10 @@ export const nearSchema = z.object({
   lng: coerceNum(z.number().min(-180).max(180)),
   radiusKm: coerceNum(z.number().min(0.5).max(100).default(10)),
   purpose: z.enum(PURPOSES).optional(),
+  type: z.enum(PROPERTY_TYPES).optional(),
+  minPrice: coerceNum(z.number().min(0).optional()),
+  maxPrice: coerceNum(z.number().min(0).optional()),
+  beds: coerceNum(z.number().int().min(0).max(20).optional()),
   limit: coerceNum(z.number().int().min(1).max(100).default(50)),
 });
 

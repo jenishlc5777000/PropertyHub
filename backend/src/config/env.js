@@ -45,6 +45,8 @@ export const env = {
     gstin: process.env.COMPANY_GSTIN || '',
   },
   defaultFreeCredits: num(process.env.DEFAULT_FREE_CREDITS, 7),
+  // Launch cities until an admin changes them (comma-separated, must match ALL_CITIES names)
+  defaultActiveCities: (process.env.DEFAULT_ACTIVE_CITIES || 'Chennai').split(',').map((s) => s.trim()).filter(Boolean),
   unlockRatePerHour: num(process.env.UNLOCK_RATE_PER_HOUR, 20),
   unlockSuspiciousPerDay: num(process.env.UNLOCK_SUSPICIOUS_PER_DAY, 30),
   seed: {

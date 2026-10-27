@@ -270,7 +270,8 @@ export function NotificationsScreen({ navigation }) {
   const readAll = useMutation({ mutationFn: api.notifications.readAll, onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }) });
   const open = (n) => {
     if (!n.read) api.notifications.read(n._id).then(() => qc.invalidateQueries({ queryKey: ['notifications'] }));
-    if (n.data?.inquiryId) navigation.navigate('Chat', { id: n.data.inquiryId });
+    if (n.data?.review) navigation.navigate('AdminReview');
+    else if (n.data?.inquiryId) navigation.navigate('Chat', { id: n.data.inquiryId });
     else if (n.data?.slug || n.data?.propertyId) navigation.navigate('PropertyDetail', { slug: n.data.slug || n.data.propertyId });
     else if (['credits', 'payment'].includes(n.type)) navigation.navigate('Credits');
   };
@@ -314,6 +315,20 @@ function MenuItem({ icon, label, onPress, right }) {
   );
 }
 
+function AdminMenuItem({ onPress }) {
+  const { colors } = useTheme();
+  const { data } = useQuery({ queryKey: ['adminStats'], queryFn: api.admin.stats });
+  const pending = data?.properties?.pending || 0;
+  return (
+    <MenuItem
+      icon="shield-checkmark-outline"
+      label="Admin · Review queue"
+      onPress={onPress}
+      right={pending ? <View style={{ backgroundColor: colors.warning, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 1 }}><Txt bold size={12} style={{ color: '#fff' }}>{pending}</Txt></View> : null}
+    />
+  );
+}
+
 export function ProfileScreen({ navigation }) {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -338,6 +353,7 @@ export function ProfileScreen({ navigation }) {
     );
   }
   const isAgent = user.role !== 'buyer';
+  const isAdmin = user.role === 'admin';
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
@@ -360,6 +376,7 @@ export function ProfileScreen({ navigation }) {
           <Txt bold style={{ flex: 1, color: colors.accent }}>{bal ? t('creditsLeft', { free: bal.free, paid: bal.paid }) : t('credits')}</Txt>
           <Txt bold size={13} style={{ color: colors.accent }}>Buy</Txt>
         </Pressable>
+        {isAdmin ? <AdminMenuItem onPress={() => navigation.navigate('AdminReview')} /> : null}
         {isAgent ? <MenuItem icon="grid-outline" label={`${t('dashboard')} · ${t('myListings')}`} onPress={() => navigation.navigate('MyListings')} /> : null}
         <MenuItem icon="add-circle-outline" label={t('postProperty')} onPress={() => navigation.navigate('PostProperty')} />
         <MenuItem icon="chatbubbles-outline" label={t('inquiries')} onPress={() => navigation.navigate('Inquiries')} />

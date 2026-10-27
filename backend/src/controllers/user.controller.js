@@ -4,6 +4,7 @@ import { ok } from '../utils/response.js';
 import { uploadImage, deleteImage } from '../services/upload.service.js';
 import { serializeMany, OWNER_FIELDS } from '../services/property.service.js';
 import { isObjectId } from '../middleware/validate.js';
+import { publicPropertyFilter } from '../services/settings.service.js';
 
 export async function me(req, res) {
   ok(res, req.user.toSelf());
@@ -55,7 +56,7 @@ export async function agentProfile(req, res) {
   if (!isObjectId(req.params.id)) throw ApiError.notFound('Agent not found');
   const agent = await User.findOne({ _id: req.params.id, isActive: true });
   if (!agent || agent.role === 'buyer') throw ApiError.notFound('Agent not found');
-  const listings = await Property.find({ owner: agent._id, status: 'approved' })
+  const listings = await Property.find(await publicPropertyFilter({ owner: agent._id }))
     .sort({ createdAt: -1 })
     .limit(50)
     .populate('owner', OWNER_FIELDS);

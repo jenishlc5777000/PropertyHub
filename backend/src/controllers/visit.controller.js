@@ -3,6 +3,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { ok, created } from '../utils/response.js';
 import { isObjectId } from '../middleware/validate.js';
 import { notify } from '../services/notification.service.js';
+import { publicPropertyFilter } from '../services/settings.service.js';
 
 const populate = [
   { path: 'property', select: 'title slug images address.city address.locality' },
@@ -13,7 +14,7 @@ const populate = [
 export async function create(req, res) {
   const { propertyId, date, slot, note } = req.body;
   if (!isObjectId(propertyId)) throw ApiError.notFound('Property not found');
-  const property = await Property.findOne({ _id: propertyId, status: 'approved' });
+  const property = await Property.findOne(await publicPropertyFilter({ _id: propertyId }));
   if (!property) throw ApiError.notFound('Property not found');
   if (String(property.owner) === String(req.user._id)) throw ApiError.badRequest('This is your own listing');
 

@@ -1,6 +1,6 @@
 # PropertyHub
 
-A real-estate platform for India: a **website**, an **Android + iOS app**, and one shared **REST API**. Buyers and tenants browse for free and reveal owner contacts with credits. Owners and agents list for free. Admins moderate listings and manage revenue.
+A real-estate platform for India, **launching in Chennai**: a **website**, an **Android + iOS app**, and one shared **REST API**. Buyers and tenants browse for free and reveal owner contacts with credits. Owners and agents list for free. Admins moderate listings and manage revenue.
 
 Everything runs on free tiers. The only paid-per-use service is **Razorpay** (a fee per live transaction, no setup cost).
 
@@ -19,22 +19,25 @@ Everything runs on free tiers. The only paid-per-use service is **Razorpay** (a 
 2. [Repository layout](#repository-layout)
 3. [Local setup](#local-setup)
 4. [Environment variables](#environment-variables)
-5. [How the credit system works](#how-the-credit-system-works)
-6. [Tests and quality checks](#tests-and-quality-checks)
-7. [Free deployment, step by step](#free-deployment-step-by-step)
-8. [Razorpay: test-to-live checklist](#razorpay-test-to-live-checklist)
-9. [Building the Android APK and iOS app with EAS](#building-the-android-apk-and-ios-app-with-eas)
-10. [Free-tier limits and known caveats](#free-tier-limits-and-known-caveats)
+5. [Listing review and live cities](#listing-review-and-live-cities)
+6. [How the credit system works](#how-the-credit-system-works)
+7. [Tests and quality checks](#tests-and-quality-checks)
+8. [Free deployment, step by step](#free-deployment-step-by-step)
+9. [Razorpay: test-to-live checklist](#razorpay-test-to-live-checklist)
+10. [Building the Android APK and iOS app with EAS](#building-the-android-apk-and-ios-app-with-eas)
+11. [Free-tier limits and known caveats](#free-tier-limits-and-known-caveats)
 
 ---
 
 ## Features
 
-**Buyers and renters:** search by city, locality, price, bedrooms, type, purpose, furnishing and amenities. Sort, scroll infinitely, switch to a map view, or use "near me" (MongoDB 2dsphere). Property pages have a gallery, OSM map, EMI calculator, similar listings and share. Users can save favorites (synced across web and app), send inquiries in in-app threads, request visits with a date picker, and unlock owner contacts.
+**Buyers and renters:** search by locality, price, bedrooms, type, purpose, furnishing and amenities. Sort, scroll infinitely, switch to a map view, or use "near me" with a 2 / 5 / 10 / 20 km radius (MongoDB 2dsphere, nearest first). Similar properties are matched by distance (same budget, within 10 km). Users outside the live cities see a "not in your area yet" message. Property pages have a gallery, OSM map, EMI calculator, similar listings and share. Users can save favorites (synced across web and app), send inquiries in in-app threads, request visits with a date picker, and unlock owner contacts.
 
 **Owners and agents:** post listings through a multi-step form with up to 10 photos and a map pin, then manage them (edit, mark sold or rented, relist, delete). A dashboard shows views, unlocks, leads, visits and favorites. Agents reply to leads and confirm visits, and have a public agent profile.
 
-**Admins** (web, `/admin`):
+**Admins** (web `/admin`, plus a review queue in the mobile app):
+- a **review queue** of every ad posted by owners and agents. Each ad waits there until an admin approves it (it then appears in listings) or rejects it with a reason (sent to the owner).
+- choose which cities are live
 - approve or reject listings (with a reason), feature listings
 - manage users: change roles, disable accounts, grant or revoke credits
 - edit plans and the free-credit count
@@ -112,7 +115,7 @@ To keep data between restarts, set `MONGODB_URI` to a local MongoDB replica set 
 | Agent | `priya@propertyhub.in`, `arjun@propertyhub.in`, `rohit@propertyhub.in` | `Agent@12345` |
 | Buyer | `buyer@propertyhub.in` | `Buyer@12345` |
 
-The seed also creates 30 properties across Mumbai, Bengaluru, Delhi, Gurugram, Pune, Hyderabad and Chennai (2 are pending review), the ₹999 / 100-credit plan, and a `WELCOME10` promo code.
+The seed also creates 30 properties across 20 Chennai localities (3 wait in the admin review queue), the ₹999 / 100-credit plan, and a `WELCOME10` promo code.
 
 **Without Razorpay keys**, the API runs payments in **mock mode** (development only, impossible in production). The web app shows a "simulate success or failure" dialog and the mobile app shows an alert. The full order → verify → credit → invoice flow still runs. With **no SMTP settings**, emails (OTP codes, invoices) are printed to the API console. With **no Cloudinary settings**, uploads go to `backend/uploads/`.
 
@@ -171,6 +174,7 @@ Every variable is documented in [`backend/.env.example`](backend/.env.example). 
 | `RAZORPAY_WEBHOOK_SECRET` | The secret you set on the Razorpay webhook |
 | `COMPANY_NAME`, `COMPANY_ADDRESS`, `COMPANY_GSTIN` | Printed on GST invoices |
 | `DEFAULT_FREE_CREDITS` | Free credits for new users until an admin changes it (default 7) |
+| `DEFAULT_ACTIVE_CITIES` | Live cities until an admin changes them (default `Chennai`) |
 | `UNLOCK_RATE_PER_HOUR`, `UNLOCK_SUSPICIOUS_PER_DAY` | Anti-scraping limits (default 20 per hour; flag at 30 per day) |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | Admin created by `npm run seed` |
 
@@ -189,6 +193,23 @@ Every variable is documented in [`backend/.env.example`](backend/.env.example). 
 > Values prefixed `VITE_` or `EXPO_PUBLIC_` are compiled into the client bundles. Never put secrets in them.
 
 ---
+
+## Listing review and live cities
+
+**Every ad is reviewed before it goes live.**
+1. An owner or agent posts an ad. It is saved with status `pending`, and every admin gets an in-app notification and a push ("New listing awaiting approval").
+2. Pending ads are invisible to the public: they don't appear in search, maps, featured, similar or agent pages, and their detail page returns 404 to everyone except the owner and admins.
+3. In **Admin → Review queue** (the default tab; the header shows a count badge), ads are listed oldest first. *Review* opens every photo, the map pin, the details, the description and the owner's contact. Then:
+   - **Approve & publish:** the status becomes `approved`, the ad appears in listings immediately, and the owner is notified.
+   - **Reject:** pick a ready-made reason or write one. The owner is notified and sees the reason in *My Listings*.
+4. If an owner edits a live ad's title, description, type, purpose, address, map pin or photos, it goes back to the queue (marked *Edited after approval*). Price-only and contact-only changes stay live. Editing a rejected ad resubmits it.
+5. Ads posted by admins are published directly.
+
+**Live cities (Chennai at launch).** The live-city list is an admin setting (`activeCities`, default from `DEFAULT_ACTIVE_CITIES=Chennai`).
+- The API only shows listings in live cities and refuses new posts elsewhere (`CITY_NOT_SERVED`). Unlocks, inquiries and visit requests are blocked on hidden listings.
+- `GET /api/v1/config` returns the live cities with their localities. Web and mobile use it for every city and locality picker. With a single live city, the city picker is hidden and the UI says "Now live in Chennai".
+- To open a new city: **Admin → Plans & settings → Live cities**, tick the city, then *Save live cities*. Existing listings there reappear immediately; nothing needs redeploying.
+- Localities (name, centre point, pincode) live in `shared/src/constants.js` (`LOCALITIES`). Add entries there before enabling a new city, so its locality pickers aren't empty.
 
 ## How the credit system works
 
@@ -216,7 +237,7 @@ The tests fire 8 parallel unlocks for one property (charged once) and 7 parallel
 ## Tests and quality checks
 
 ```bash
-npm test            # backend: credits, race conditions, payments, webhook idempotency, search (9 tests)
+npm test            # backend: credits, race conditions, payments, webhook idempotency, search, review queue, live cities (11 tests)
 npm run lint        # ESLint across shared, backend, web, mobile
 npm run build:web   # production build of the website
 cd mobile && npx expo-doctor && npx expo export --platform android   # mobile sanity checks

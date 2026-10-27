@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Bell,
   Building2,
@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { LANGUAGES, APP_NAME } from '@propertyhub/shared';
 import { useAuth } from '../context/AuthContext';
-import { useBalance, useNotifications } from '../hooks/useData';
+import { useBalance, useConfig, useNotifications } from '../hooks/useData';
 import { api } from '../lib/api';
 
 function useOutside(ref, cb) {
@@ -113,7 +113,7 @@ function NotificationBell() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   });
   const link = (n) =>
-    n.data?.inquiryId ? `/account/inquiries?id=${n.data.inquiryId}` : n.data?.slug ? `/property/${n.data.slug}` : n.data?.propertyId ? `/account/listings` : n.type === 'credits' || n.type === 'payment' ? '/account/credits' : null;
+    n.data?.review ? '/admin' : n.data?.inquiryId ? `/account/inquiries?id=${n.data.inquiryId}` : n.data?.slug ? `/property/${n.data.slug}` : n.data?.propertyId ? `/account/listings` : n.type === 'credits' || n.type === 'payment' ? '/account/credits' : null;
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen((o) => !o)} className="btn-ghost relative p-2" aria-label={t('notifications')}>
@@ -218,6 +218,24 @@ function UserMenu() {
   );
 }
 
+/** Admin-only header link showing how many ads are waiting in the review queue. */
+function AdminLink() {
+  const { user } = useAuth();
+  const { t } = useTranslation();
+  const isAdmin = user?.role === 'admin';
+  const { data } = useQuery({ queryKey: ['adminStats'], queryFn: api.admin.stats, enabled: isAdmin, refetchInterval: 60_000 });
+  if (!isAdmin) return null;
+  const pending = data?.properties?.pending || 0;
+  return (
+    <Link to="/admin" className="btn-ghost relative hidden gap-1.5 px-3 py-2 md:inline-flex" title={`${pending} ads waiting for review`}>
+      <Shield className="size-4" /> {t('admin')}
+      {pending > 0 && (
+        <span className="grid min-w-5 place-items-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white">{pending}</span>
+      )}
+    </Link>
+  );
+}
+
 function Header() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -253,6 +271,7 @@ function Header() {
           <Link to="/post-property" className="btn-primary hidden py-2 sm:inline-flex">
             <Plus className="size-4" /> {t('postProperty')}
           </Link>
+          <AdminLink />
           {user ? (
             <>
               <NotificationBell />
@@ -288,21 +307,23 @@ function Header() {
 
 function Footer() {
   const { t } = useTranslation();
+  const { cities, singleCity } = useConfig();
+  const areas = singleCity ? singleCity.localities.slice(0, 6).map((l) => ({ label: l.name, to: `/properties?locality=${encodeURIComponent(l.name)}` })) : cities.map((c) => ({ label: c.name, to: `/properties?city=${c.name}` }));
   return (
     <footer className="mt-20 bg-brand-900 text-slate-300">
       <div className="container-x grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <Logo light />
-          <p className="mt-3 text-sm text-slate-400">{t('tagline')}</p>
+          <p className="mt-3 text-sm text-slate-400">{singleCity ? t('taglineCity', { city: singleCity.name }) : t('tagline')}</p>
         </div>
         <div>
-          <h4 className="mb-3 font-semibold text-white">{t('listings')}</h4>
+          <h4 className="mb-3 font-semibold text-white">{singleCity ? `${t('listings')} in ${singleCity.name}` : t('listings')}</h4>
           <ul className="space-y-2 text-sm">
-            {['Mumbai', 'Bengaluru', 'Delhi', 'Pune', 'Hyderabad', 'Chennai'].map((c) => (
-              <li key={c}>
-                <Link to={`/properties?city=${c}`} className="hover:text-white">
+            {areas.map((a) => (
+              <li key={a.label}>
+                <Link to={a.to} className="hover:text-white">
                   <Building2 className="mr-1.5 inline size-3.5" />
-                  {c}
+                  {a.label}
                 </Link>
               </li>
             ))}

@@ -1,22 +1,23 @@
 import { Property, User } from '../models/index.js';
 import { env } from '../config/env.js';
-import { CITIES } from '@propertyhub/shared';
+import { getActiveCities, publicPropertyFilter } from '../services/settings.service.js';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /** XML sitemap for the web app's public pages. */
 export async function sitemap(_req, res) {
   const base = env.webUrl.replace(/\/$/, '');
+  const cities = await getActiveCities();
   const [props, agents] = await Promise.all([
-    Property.find({ status: 'approved' }).select('slug updatedAt').sort({ updatedAt: -1 }).limit(45000).lean(),
+    Property.find(await publicPropertyFilter()).select('slug updatedAt').sort({ updatedAt: -1 }).limit(45000).lean(),
     User.find({ role: 'agent', isActive: true }).select('_id updatedAt').limit(5000).lean(),
   ]);
   const urls = [
     { loc: `${base}/`, priority: '1.0' },
     { loc: `${base}/properties`, priority: '0.9' },
-    ...CITIES.flatMap((c) => [
-      { loc: `${base}/properties?city=${encodeURIComponent(c.name)}&purpose=sale`, priority: '0.8' },
-      { loc: `${base}/properties?city=${encodeURIComponent(c.name)}&purpose=rent`, priority: '0.8' },
+    ...cities.flatMap((c) => [
+      { loc: `${base}/properties?city=${encodeURIComponent(c)}&purpose=sale`, priority: '0.8' },
+      { loc: `${base}/properties?city=${encodeURIComponent(c)}&purpose=rent`, priority: '0.8' },
     ]),
     ...props.map((p) => ({ loc: `${base}/property/${p.slug}`, lastmod: p.updatedAt, priority: '0.7' })),
     ...agents.map((a) => ({ loc: `${base}/agents/${a._id}`, lastmod: a.updatedAt, priority: '0.5' })),

@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Building, Building2, Calculator, Home as HomeIcon, LandPlot, MapPin, Search, ShieldCheck, Trees, Unlock, Users } from 'lucide-react';
-import { CITIES } from '@propertyhub/shared';
+import { ArrowRight, Building, Building2, Calculator, Home as HomeIcon, LandPlot, LocateFixed, MapPin, Search, ShieldCheck, Trees, Unlock, Users } from 'lucide-react';
 import { api } from '../lib/api';
+import { useConfig } from '../hooks/useData';
 import PropertyCard from '../components/PropertyCard';
 import { ErrorState, GridSkeleton, Seo } from '../components/ui';
 
@@ -49,7 +49,10 @@ export default function Home() {
   const nav = useNavigate();
   const [purpose, setPurpose] = useState('sale');
   const [q, setQ] = useState('');
-  const [city, setCity] = useState('');
+  const [locality, setLocality] = useState('');
+  const { cities, singleCity } = useConfig();
+  const cityNames = cities.map((c) => c.name).join(', ');
+  const areas = cities.flatMap((c) => c.localities.map((l) => ({ ...l, city: c.name })));
   const featured = useQuery({ queryKey: ['featured'], queryFn: api.properties.featured });
   const latest = useQuery({ queryKey: ['properties', { sort: 'newest', limit: 6, boost: '0' }], queryFn: () => api.properties.list({ sort: 'newest', limit: 6, boost: '0' }) });
 
@@ -57,13 +60,17 @@ export default function Home() {
     e.preventDefault();
     const p = new URLSearchParams({ purpose });
     if (q.trim()) p.set('q', q.trim());
-    if (city) p.set('city', city);
+    if (locality) {
+      const a = areas.find((x) => `${x.city}|${x.name}` === locality);
+      p.set('locality', a.name);
+      if (!singleCity) p.set('city', a.city);
+    }
     nav(`/properties?${p}`);
   };
 
   return (
     <>
-      <Seo description="Search verified flats, villas, houses, plots and offices for sale and rent in Mumbai, Bengaluru, Delhi NCR, Pune, Hyderabad and Chennai. Talk to owners directly." />
+      <Seo description={`Search verified flats, villas, houses, plots and offices for sale and rent in ${cityNames}. Talk to owners directly.`} />
       <section className="relative overflow-hidden bg-brand-900">
         <img
           src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1800&q=70&auto=format&fit=crop"
@@ -72,7 +79,10 @@ export default function Home() {
         />
         <div className="absolute inset-0 bg-gradient-to-b from-brand-900/40 via-brand-900/60 to-brand-900" />
         <div className="container-x relative py-20 sm:py-28">
-          <h1 className="max-w-3xl text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">{t('tagline')}</h1>
+          <span className="chip mb-4 bg-accent-600/90 py-1.5 text-white">
+            <MapPin className="size-3.5" /> Now live in {cityNames}
+          </span>
+          <h1 className="max-w-3xl text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">{singleCity ? t('taglineCity', { city: singleCity.name }) : t('tagline')}</h1>
           <p className="mt-4 max-w-xl text-lg text-slate-200">{t('heroSubtitle')}</p>
 
           <form onSubmit={search} className="mt-8 max-w-3xl rounded-2xl bg-white p-2 shadow-2xl dark:bg-slate-900">
@@ -89,11 +99,16 @@ export default function Home() {
               ))}
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <div className="relative sm:w-44">
+              <div className="relative sm:w-56">
                 <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-                <select value={city} onChange={(e) => setCity(e.target.value)} className="input pl-9" aria-label={t('city')}>
-                  <option value="">{t('city')}: {t('any')}</option>
-                  {CITIES.map((c) => <option key={c.name}>{c.name}</option>)}
+                <select value={locality} onChange={(e) => setLocality(e.target.value)} className="input pl-9" aria-label={t('locality')}>
+                  <option value="">All of {singleCity ? singleCity.name : 'our cities'}</option>
+                  {areas.map((a) => (
+                    <option key={`${a.city}|${a.name}`} value={`${a.city}|${a.name}`}>
+                      {a.name}
+                      {singleCity ? '' : `, ${a.city}`}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="relative flex-1">
@@ -105,9 +120,12 @@ export default function Home() {
           </form>
 
           <div className="mt-6 flex flex-wrap gap-2">
-            {CITIES.slice(0, 6).map((c) => (
-              <Link key={c.name} to={`/properties?city=${c.name}`} className="chip bg-white/10 py-1.5 text-white backdrop-blur hover:bg-white/20">
-                {c.name}
+            <Link to="/properties?near=1" className="chip bg-accent-600 py-1.5 text-white hover:bg-accent-700">
+              <LocateFixed className="size-3.5" /> {t('nearMe')}
+            </Link>
+            {areas.slice(0, 8).map((a) => (
+              <Link key={`${a.city}|${a.name}`} to={`/properties?locality=${encodeURIComponent(a.name)}`} className="chip bg-white/10 py-1.5 text-white backdrop-blur hover:bg-white/20">
+                {a.name}
               </Link>
             ))}
           </div>
@@ -127,6 +145,21 @@ export default function Home() {
 
       <Section title={t('featured')} link="/properties">
         <Grid query={featured} />
+      </Section>
+
+      <Section title={`Explore ${singleCity ? singleCity.name : ''} by locality`} link="/properties">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {areas.map((a) => (
+            <Link
+              key={`${a.city}|${a.name}`}
+              to={`/properties?locality=${encodeURIComponent(a.name)}${singleCity ? '' : `&city=${a.city}`}`}
+              className="card flex items-center gap-2 px-4 py-3 text-sm font-medium transition hover:border-accent-500 hover:text-accent-600"
+            >
+              <MapPin className="size-4 shrink-0 text-accent-600" />
+              <span className="truncate">{a.name}</span>
+            </Link>
+          ))}
+        </div>
       </Section>
 
       <Section title={t('latest')} link="/properties?sort=newest">

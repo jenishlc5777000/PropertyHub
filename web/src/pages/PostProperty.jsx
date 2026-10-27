@@ -3,10 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ImagePlus, Trash2, UserCheck } from 'lucide-react';
-import { AMENITIES, CITIES, FURNISHING, MAX_IMAGES, PROPERTY_TYPES, apiErrorMessage, formatINR, propertySchema, titleCase, zodFieldErrors } from '@propertyhub/shared';
+import { AMENITIES, FURNISHING, MAX_IMAGES, PROPERTY_TYPES, apiErrorMessage, formatINR, propertySchema, titleCase, zodFieldErrors } from '@propertyhub/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useConfig } from '../hooks/useData';
 import LocationPicker from '../components/LocationPicker';
 import { Field, PageLoader, Seo, Spinner } from '../components/ui';
 
@@ -62,6 +63,14 @@ export default function PostProperty() {
   const [files, setFiles] = useState([]);
   const [existing, setExisting] = useState([]);
   const [removed, setRemoved] = useState([]);
+
+  const { cities, singleCity, localitiesOf } = useConfig();
+  // Only one live city: pre-fill it for new listings.
+  useEffect(() => {
+    if (!id && singleCity) {
+      setF((x) => (x.address.city ? x : { ...x, address: { ...x.address, city: singleCity.name, state: singleCity.state } }));
+    }
+  }, [id, singleCity]);
 
   const editing = useQuery({ queryKey: ['property', id], queryFn: () => api.properties.get(id), enabled: Boolean(id) });
   useEffect(() => {
@@ -203,21 +212,45 @@ export default function PostProperty() {
         {step === 1 && (
           <>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t('city')} error={errs['address.city']}>
+              <Field
+                label={t('city')}
+                error={errs['address.city']}
+                hint={singleCity ? `We're currently accepting listings only in ${singleCity.name}.` : undefined}
+              >
                 <select
                   className="input"
                   value={f.address.city}
+                  disabled={Boolean(singleCity) && f.address.city === singleCity.name}
                   onChange={(e) => {
-                    const c = CITIES.find((x) => x.name === e.target.value);
-                    setF((x) => ({ ...x, address: { ...x.address, city: e.target.value, state: c?.state || x.address.state }, lat: x.lat ?? c?.lat, lng: x.lng ?? c?.lng }));
+                    const c = cities.find((x) => x.name === e.target.value);
+                    setF((x) => ({ ...x, address: { ...x.address, city: e.target.value, state: c?.state || x.address.state, locality: '' }, lat: c?.lat ?? x.lat, lng: c?.lng ?? x.lng }));
                   }}
                 >
                   <option value="">Select city</option>
-                  {CITIES.map((c) => <option key={c.name}>{c.name}</option>)}
+                  {cities.map((c) => <option key={c.name}>{c.name}</option>)}
+                  {f.address.city && !cities.some((c) => c.name === f.address.city) && <option>{f.address.city}</option>}
                 </select>
               </Field>
               <Field label={t('locality')} error={errs['address.locality']}>
-                <input className="input" value={f.address.locality} onChange={(e) => setAddr('locality', e.target.value)} />
+                <input
+                  className="input"
+                  list="locality-options"
+                  value={f.address.locality}
+                  placeholder="Pick or type an area"
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const hit = localitiesOf(f.address.city).find((l) => l.name === v);
+                    // Picking a known area fills the pincode and moves the pin there.
+                    setF((x) => ({
+                      ...x,
+                      address: { ...x.address, locality: v, pincode: hit && !x.address.pincode ? hit.pincode : x.address.pincode },
+                      ...(hit ? { lat: hit.lat, lng: hit.lng } : {}),
+                    }));
+                  }}
+                />
+                <datalist id="locality-options">
+                  {localitiesOf(f.address.city).map((l) => <option key={l.name} value={l.name} />)}
+                </datalist>
               </Field>
               <Field label="Address line" error={errs['address.line']}>
                 <input className="input" value={f.address.line} onChange={(e) => setAddr('line', e.target.value)} placeholder="Flat / building, street" />

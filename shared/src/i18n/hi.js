@@ -1,6 +1,7 @@
 export default {
   appName: 'PropertyHub',
   tagline: 'भारत में कहीं भी अपना पसंदीदा घर खोजें',
+  taglineCity: '{{city}} में अपना पसंदीदा घर खोजें',
   heroSubtitle: 'बिक्री और किराए के लिए सत्यापित अपार्टमेंट, विला, प्लॉट और ऑफिस',
   search: 'खोजें',
   searchPlaceholder: 'शहर, इलाका या प्रोजेक्ट खोजें',

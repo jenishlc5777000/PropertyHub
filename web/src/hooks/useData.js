@@ -1,5 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiErrorMessage } from '@propertyhub/shared';
+import { apiErrorMessage, CITIES, LOCALITIES } from '@propertyhub/shared';
+
+const FALLBACK_CONFIG = { activeCities: CITIES.map((c) => ({ ...c, localities: LOCALITIES[c.name] || [] })), freeCredits: 7 };
+
+/** Live cities (with localities) from the server. Admins control this list. */
+export function useConfig() {
+  const q = useQuery({ queryKey: ['config'], queryFn: api.config, staleTime: 5 * 60_000, placeholderData: FALLBACK_CONFIG });
+  const config = q.data || FALLBACK_CONFIG;
+  return {
+    ...config,
+    cities: config.activeCities,
+    singleCity: config.activeCities.length === 1 ? config.activeCities[0] : null,
+    localitiesOf: (city) => config.activeCities.find((c) => c.name === city)?.localities || [],
+  };
+}
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
