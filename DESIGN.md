@@ -96,3 +96,27 @@ Headings use −0.02em tracking. Body lines are at most about 70 characters.
   - Real property photos, always `object-cover` and always inside a rounded frame.
   - The hero photo sits under a navy-to-transparent overlay (bottom-heavy) so white text passes contrast.
   - Map pins are navy price pills; the selected or current pin is emerald.
+
+## Motion
+
+Motion explains what's happening (something arrived, opened or was saved), and stays out of the way. One easing curve: `cubic-bezier(0.22, 1, 0.36, 1)`. Tokens live in `web/src/index.css`; helpers live in `web/src/components/motion.jsx`.
+
+| What | Animation | Duration |
+|---|---|---|
+| Hero blocks (pill → headline → text → search → chips → stats) | `animate-fade-up`, staggered 90 ms | 700 ms |
+| Hero photo | `animate-ken-burns` (slow 1.12 → 1 zoom) | 22 s, once |
+| Hero stats | `<CountUp>` (ease-out cubic) when visible | 1.2 s |
+| Sections, cards, locality tiles, steps | `<Reveal>` fade-up on scroll, staggered by column (`stagger()`) | 700 ms |
+| Page change | `animate-fade-in` on `<main>` | 400 ms |
+| Dialogs | backdrop `fade-in`; panel `sheet-up` on phones, `scale-in` on desktop | 280–340 ms |
+| Toasts | `animate-toast-in` | 350 ms |
+| Favourite saved | `animate-heart-pop` | 450 ms |
+| Loading | skeleton shimmer | 1.4 s loop |
+| Header | shadow fades in after scrolling 8 px | 300 ms |
+| Hover | card lifts 4 px and gains `shadow-lift`; photo zooms 4%; buttons press to 98% | 200–700 ms |
+
+Rules:
+- Animate only `opacity` and `transform`.
+- Nothing loops except loading states.
+- Never delay content by more than about 700 ms.
+- `prefers-reduced-motion: reduce` turns all of it off, and revealed content shows immediately.

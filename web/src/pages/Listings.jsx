@@ -11,6 +11,7 @@ import PropertyCard from '../components/PropertyCard';
 import MapView from '../components/MapView';
 import { EmptyState, ErrorState, GridSkeleton, Modal, Seo, Spinner } from '../components/ui';
 import { useToast } from '../context/ToastContext';
+import { Reveal, stagger } from '../components/motion';
 
 const clean = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== '' && v != null));
 
@@ -197,7 +198,11 @@ export default function Listings() {
           ) : (
             <>
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                {items.map((p) => <PropertyCard key={p._id} p={p} />)}
+                {items.map((p, i) => (
+                  <Reveal key={p._id} delay={stagger(i)}>
+                    <PropertyCard p={p} />
+                  </Reveal>
+                ))}
               </div>
               <div ref={sentinel} className="flex justify-center py-8">
                 {list.isFetchingNextPage && <Spinner className="size-6 text-accent-600" />}

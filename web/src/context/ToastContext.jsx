@@ -27,7 +27,7 @@ export function ToastProvider({ children }) {
             <div
               key={t.id}
               role="status"
-              className={`pointer-events-auto flex max-w-md items-start gap-3 rounded-xl px-4 py-3 text-sm text-white shadow-lg ${bg}`}
+              className={`pointer-events-auto flex max-w-md animate-toast-in items-start gap-3 rounded-2xl px-4 py-3 text-sm text-white shadow-lift ${bg}`}
             >
               <Icon className="mt-0.5 size-4 shrink-0" />
               <span className="flex-1">{t.message}</span>

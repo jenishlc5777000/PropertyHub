@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Heart, MapPin, Star, TrendingDown } from 'lucide-react';
@@ -12,6 +13,7 @@ export function FavoriteButton({ id, className = '' }) {
   const { data: favs } = useFavoriteIds();
   const toggle = useToggleFavorite();
   const on = favs?.has(id);
+  const [pop, setPop] = useState(0); // bump to replay the pop animation
   return (
     <button
       type="button"
@@ -21,11 +23,16 @@ export function FavoriteButton({ id, className = '' }) {
         e.preventDefault();
         e.stopPropagation();
         if (!user) return nav('/login', { state: { from: window.location.pathname } });
+        if (!on) setPop((n) => n + 1);
         toggle.mutate({ id, on: !on });
       }}
       className={`grid size-9 place-items-center rounded-full bg-white/85 shadow-sm ring-1 ring-black/5 backdrop-blur transition hover:scale-110 active:scale-95 dark:bg-slate-900/80 ${className}`}
     >
-      <Heart className={`size-[18px] transition ${on ? 'fill-red-500 text-red-500' : 'text-slate-700 dark:text-slate-200'}`} strokeWidth={1.75} />
+      <Heart
+        key={pop}
+        className={`size-[18px] transition ${on ? 'fill-red-500 text-red-500' : 'text-slate-700 dark:text-slate-200'} ${pop ? 'animate-heart-pop' : ''}`}
+        strokeWidth={1.75}
+      />
     </button>
   );
 }

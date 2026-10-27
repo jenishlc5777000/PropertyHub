@@ -238,6 +238,13 @@ function AdminLink() {
 
 function Header() {
   const { t } = useTranslation();
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   const { user } = useAuth();
   const [mobile, setMobile] = useState(false);
   const loc = useLocation();
@@ -248,7 +255,7 @@ function Header() {
   const navCls = ({ isActive }, want) =>
     `relative px-3 py-2 text-sm font-medium transition after:absolute after:inset-x-3 after:-bottom-[13px] after:h-0.5 after:rounded-full after:transition ${isActive && (!want || (loc.pathname === '/properties' && purpose === want)) ? 'text-slate-900 after:bg-accent-600 dark:text-white' : 'text-slate-500 after:bg-transparent hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`;
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl backdrop-saturate-150 dark:border-slate-800 dark:bg-slate-950/80">
+    <header className={`sticky top-0 z-40 border-b bg-white/80 backdrop-blur-xl backdrop-saturate-150 transition-shadow duration-300 dark:bg-slate-950/80 ${scrolled ? 'border-slate-200/70 shadow-[0_8px_24px_-16px_rgb(15_42_74/0.35)] dark:border-slate-800' : 'border-transparent'}`}>
       <div className="container-x flex h-16 items-center justify-between gap-4">
         <div className="flex items-center gap-6">
           <Logo />
@@ -362,7 +369,8 @@ export default function Layout() {
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      <main className="flex-1">
+      {/* keyed on the path so each page fades in on navigation */}
+      <main key={pathname} className="flex-1 animate-fade-in">
         <Outlet />
       </main>
       <Footer />

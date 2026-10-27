@@ -48,14 +48,14 @@ export default function Gallery({ images = [], title }) {
         </button>
       </div>
       {open && (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/95" role="dialog" aria-label="Photo viewer">
+        <div className="fixed inset-0 z-[95] flex animate-fade-in items-center justify-center bg-black/95" role="dialog" aria-label="Photo viewer">
           <button className="absolute right-4 top-4 p-2 text-white" onClick={() => setOpen(false)} aria-label="Close">
             <X className="size-7" />
           </button>
           <button className="absolute left-2 p-3 text-white sm:left-6" onClick={() => go(-1)} aria-label="Previous">
             <ChevronLeft className="size-8" />
           </button>
-          <img src={images[i].url} alt={`${title} ${i + 1}`} className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain" />
+          <img key={i} src={images[i].url} alt={`${title} ${i + 1}`} className="max-h-[85vh] max-w-[90vw] animate-scale-in rounded-lg object-contain" />
           <button className="absolute right-2 p-3 text-white sm:right-6" onClick={() => go(1)} aria-label="Next">
             <ChevronRight className="size-8" />
           </button>

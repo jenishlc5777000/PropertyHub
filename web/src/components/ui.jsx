@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { AlertCircle, Inbox, Loader2, X } from 'lucide-react';
 import { APP_NAME } from '@propertyhub/shared';
 import { SITE_URL } from '../lib/api';
+import { Reveal } from './motion';
 
 export function Spinner({ className = 'size-5' }) {
   return <Loader2 className={`animate-spin ${className}`} />;
@@ -30,12 +31,12 @@ export function Modal({ open, onClose, title, children, size = 'max-w-md' }) {
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-900/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[90] flex animate-fade-in items-end justify-center bg-slate-950/55 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`card max-h-[92vh] w-full ${size} overflow-y-auto rounded-b-none p-6 sm:rounded-2xl`}
+        className={`card max-h-[92vh] w-full ${size} animate-sheet-up overflow-y-auto rounded-b-none p-6 sm:animate-scale-in sm:rounded-[20px]`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-4">
@@ -166,14 +167,14 @@ export function PageHeader({ title, subtitle, actions, eyebrow }) {
 /** Eyebrow + serif title + optional action on the right. */
 export function SectionHeader({ eyebrow, title, subtitle, action }) {
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+    <Reveal className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div className="max-w-2xl">
         {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}
         <h2 className="text-[28px] leading-tight sm:text-[34px]">{title}</h2>
         {subtitle && <p className="mt-2 text-slate-500 dark:text-slate-400">{subtitle}</p>}
       </div>
       {action}
-    </div>
+    </Reveal>
   );
 }
 
