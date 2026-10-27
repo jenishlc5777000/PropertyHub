@@ -223,17 +223,20 @@ function Header() {
   const { user } = useAuth();
   const [mobile, setMobile] = useState(false);
   const loc = useLocation();
-  useEffect(() => setMobile(false), [loc.pathname, loc.search]);
-  const navCls = ({ isActive }) =>
-    `rounded-lg px-3 py-2 text-sm font-medium transition ${isActive ? 'text-accent-600' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'}`;
+  useEffect(() => {
+    setMobile(false);
+  }, [loc.pathname, loc.search]);
+  const purpose = new URLSearchParams(loc.search).get('purpose');
+  const navCls = ({ isActive }, want) =>
+    `rounded-lg px-3 py-2 text-sm font-medium transition ${isActive && (!want || (loc.pathname === '/properties' && purpose === want)) ? 'text-accent-600' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'}`;
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
       <div className="container-x flex h-16 items-center justify-between gap-4">
         <div className="flex items-center gap-6">
           <Logo />
           <nav className="hidden items-center md:flex">
-            <NavLink to="/properties?purpose=sale" className={navCls}>{t('buy')}</NavLink>
-            <NavLink to="/properties?purpose=rent" className={navCls}>{t('rent')}</NavLink>
+            <NavLink to="/properties?purpose=sale" className={(a) => navCls(a, 'sale')}>{t('buy')}</NavLink>
+            <NavLink to="/properties?purpose=rent" className={(a) => navCls(a, 'rent')}>{t('rent')}</NavLink>
             <NavLink to="/emi-calculator" className={navCls}>EMI</NavLink>
           </nav>
         </div>
@@ -267,8 +270,8 @@ function Header() {
         <div className="border-t border-slate-200 px-4 py-4 md:hidden dark:border-slate-800">
           <div className="flex flex-col gap-1">
             {user && <div className="mb-2"><CreditBadge /></div>}
-            <NavLink to="/properties?purpose=sale" className={navCls}>{t('buy')}</NavLink>
-            <NavLink to="/properties?purpose=rent" className={navCls}>{t('rent')}</NavLink>
+            <NavLink to="/properties?purpose=sale" className={(a) => navCls(a, 'sale')}>{t('buy')}</NavLink>
+            <NavLink to="/properties?purpose=rent" className={(a) => navCls(a, 'rent')}>{t('rent')}</NavLink>
             <NavLink to="/emi-calculator" className={navCls}>{t('emiCalculator')}</NavLink>
             <NavLink to="/post-property" className={navCls}>{t('postProperty')}</NavLink>
             {!user && <NavLink to="/login" className={navCls}>{t('login')}</NavLink>}
@@ -332,7 +335,9 @@ function Footer() {
 
 export default function Layout() {
   const { pathname } = useLocation();
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
   return (
     <div className="flex min-h-screen flex-col">
       <Header />

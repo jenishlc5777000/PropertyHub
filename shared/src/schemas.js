@@ -104,6 +104,8 @@ export const propertyFilterSchema = z.object({
     .preprocess((v) => (typeof v === 'string' ? v.split(',').filter(Boolean) : v), z.array(z.enum(AMENITIES)))
     .optional(),
   sort: z.enum(['newest', 'price_asc', 'price_desc']).default('newest'),
+  // featured listings are pinned to the top unless boost=0
+  boost: z.enum(['0', '1']).default('1'),
   page: coerceNum(z.number().int().min(1).default(1)),
   limit: coerceNum(z.number().int().min(1).max(50).default(12)),
 });

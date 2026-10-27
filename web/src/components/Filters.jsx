@@ -10,7 +10,9 @@ const label = (n) => (n >= 1e7 ? `₹${n / 1e7} Cr` : n >= 1e5 ? `₹${n / 1e5} 
 export default function Filters({ params, onApply }) {
   const { t } = useTranslation();
   const [f, setF] = useState(() => Object.fromEntries(params));
-  useEffect(() => setF(Object.fromEntries(params)), [params]);
+  useEffect(() => {
+    setF(Object.fromEntries(params));
+  }, [params]);
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const amenities = (f.amenities || '').split(',').filter(Boolean);
   const prices = f.purpose === 'rent' ? PRICE_RENT : PRICE_SALE;

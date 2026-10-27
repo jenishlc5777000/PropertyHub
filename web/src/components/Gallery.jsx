@@ -19,6 +19,14 @@ export default function Gallery({ images = [], title }) {
   });
 
   if (!n) return <div className="aspect-[16/9] rounded-2xl bg-slate-200 dark:bg-slate-800" />;
+  // 5+ photos: 2x2 cover + 4 tiles; fewer: wide cover + a single column of thumbs (no empty slots)
+  const LAYOUTS = {
+    1: { grid: '', cover: 'sm:col-span-4' },
+    2: { grid: 'sm:grid-rows-1', cover: 'sm:col-span-3' },
+    3: { grid: 'sm:grid-rows-2', cover: 'sm:col-span-3 sm:row-span-2' },
+    4: { grid: 'sm:grid-rows-3', cover: 'sm:col-span-3 sm:row-span-3' },
+  };
+  const layout = LAYOUTS[n] || { grid: 'sm:grid-rows-2', cover: 'sm:col-span-2 sm:row-span-2' };
   const show = (k) => {
     setI(k);
     setOpen(true);
@@ -26,8 +34,8 @@ export default function Gallery({ images = [], title }) {
 
   return (
     <>
-      <div className="relative grid h-[280px] gap-2 overflow-hidden rounded-2xl sm:h-[440px] sm:grid-cols-4 sm:grid-rows-2">
-        <button onClick={() => show(0)} className="sm:col-span-2 sm:row-span-2">
+      <div className={`relative grid h-[280px] gap-2 overflow-hidden rounded-2xl sm:h-[440px] sm:grid-cols-4 ${layout.grid}`}>
+        <button onClick={() => show(0)} className={layout.cover}>
           <img src={images[0].url} alt={title} className="size-full object-cover" />
         </button>
         {images.slice(1, 5).map((img, k) => (

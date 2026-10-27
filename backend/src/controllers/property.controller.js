@@ -36,7 +36,7 @@ export async function list(req, res) {
   const skip = (q.page - 1) * q.limit;
   const [items, total] = await Promise.all([
     Property.find(filter)
-      .sort({ featured: -1, ...SORT[q.sort] })
+      .sort(q.boost === '1' ? { featured: -1, ...SORT[q.sort] } : SORT[q.sort])
       .skip(skip)
       .limit(q.limit)
       .populate('owner', OWNER_FIELDS),

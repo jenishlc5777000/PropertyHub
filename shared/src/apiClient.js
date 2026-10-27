@@ -64,6 +64,7 @@ export function createApiClient({ axios, baseURL, tokenStore, onLogout }) {
       changePassword: (body) => d(http.post('/users/me/password', body)),
       uploadAvatar: (formData) =>
         d(http.post('/users/me/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } })),
+      becomeAgent: () => d(http.post('/users/me/become-agent')),
       registerPushToken: (token) => d(http.post('/users/me/push-token', { token })),
       agent: (id) => d(http.get(`/users/agents/${id}`)),
     },
