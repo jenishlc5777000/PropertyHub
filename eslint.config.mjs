@@ -4,7 +4,7 @@ import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 export default [
-  { ignores: ['**/node_modules/**', '**/dist/**', 'mobile/**', '**/.expo/**'] },
+  { ignores: ['**/node_modules/**', '**/dist/**', '**/.expo/**', 'mobile/metro.config.js'] },
   js.configs.recommended,
   {
     files: ['shared/**/*.js', 'backend/**/*.js'],
@@ -12,12 +12,12 @@ export default [
     rules: { 'no-unused-vars': ['warn', { argsIgnorePattern: '^_|next' }] },
   },
   {
-    files: ['web/**/*.{js,jsx}'],
+    files: ['web/**/*.{js,jsx}', 'mobile/**/*.js'],
     plugins: { react, 'react-hooks': reactHooks },
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'module',
-      globals: { ...globals.browser },
+      globals: { ...globals.browser, __DEV__: 'readonly', process: 'readonly', require: 'readonly' },
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
     settings: { react: { version: 'detect' } },

@@ -3,14 +3,18 @@
   "private": true,
   "version": "1.0.0",
   "description": "PropertyHub - real estate platform (API + web + mobile)",
-  "workspaces": ["shared", "backend", "web"],
+  "workspaces": [
+    "shared",
+    "backend",
+    "web"
+  ],
   "scripts": {
     "dev:api": "npm run dev -w backend",
     "dev:web": "npm run dev -w web",
     "seed": "npm run seed -w backend",
     "test": "npm test -w backend",
     "build:web": "npm run build -w web",
-    "lint": "eslint shared backend web/src",
+    "lint": "eslint shared backend web/src mobile/App.js mobile/src",
     "format": "prettier --write \"{shared,backend,web,mobile}/**/*.{js,jsx,json,css,md}\" --ignore-path .prettierignore"
   },
   "devDependencies": {
