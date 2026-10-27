@@ -150,14 +150,29 @@ export function Seo({ title, description, image, path = '', noindex }) {
   );
 }
 
-export function PageHeader({ title, subtitle, actions }) {
+export function PageHeader({ title, subtitle, actions, eyebrow }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
-        {subtitle && <p className="mt-1 text-slate-500 dark:text-slate-400">{subtitle}</p>}
+        {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}
+        <h1 className="text-3xl leading-tight sm:text-[40px]">{title}</h1>
+        {subtitle && <p className="mt-2 max-w-2xl text-slate-500 dark:text-slate-400">{subtitle}</p>}
       </div>
       {actions}
+    </div>
+  );
+}
+
+/** Eyebrow + serif title + optional action on the right. */
+export function SectionHeader({ eyebrow, title, subtitle, action }) {
+  return (
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+      <div className="max-w-2xl">
+        {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}
+        <h2 className="text-[28px] leading-tight sm:text-[34px]">{title}</h2>
+        {subtitle && <p className="mt-2 text-slate-500 dark:text-slate-400">{subtitle}</p>}
+      </div>
+      {action}
     </div>
   );
 }

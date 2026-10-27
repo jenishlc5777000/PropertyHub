@@ -1,6 +1,6 @@
 import './src/i18n';
-import { useEffect, useMemo, useState } from 'react';
-import { useColorScheme, View, ActivityIndicator } from 'react-native';
+import { useContext, useEffect, useMemo, useState } from 'react';
+import { useColorScheme, View, ActivityIndicator, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme, DarkTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -11,10 +11,19 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
-import { ThemeContext, darkColors, lightColors } from './src/theme';
+import * as SplashScreen from 'expo-splash-screen';
+import { useFonts, Fraunces_500Medium, Fraunces_600SemiBold } from '@expo-google-fonts/fraunces';
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+} from '@expo-google-fonts/plus-jakarta-sans';
+import { ThemeContext, darkColors, fonts, lightColors } from './src/theme';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { OnboardingScreen, LoginScreen, RegisterScreen, ForgotPasswordScreen } from './src/screens/auth';
-import { HomeScreen, SearchScreen, MapScreen } from './src/screens/browse';
+import { HomeScreen } from './src/screens/home';
+import { SearchScreen, MapScreen } from './src/screens/browse';
 import PropertyDetailScreen from './src/screens/PropertyDetail';
 import PostPropertyScreen from './src/screens/PostProperty';
 import { InquiriesScreen, ChatScreen } from './src/screens/inquiries';
@@ -37,18 +46,24 @@ const queryClient = new QueryClient({
   },
 });
 
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 export const navigationRef = createNavigationContainerRef();
 
 function Tabs() {
   const { t } = useTranslation();
+  const { colors } = useContext(ThemeContext);
   const icons = { Home: 'home', Search: 'search', Map: 'map', Favorites: 'heart', Profile: 'person' };
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#059669',
+        tabBarActiveTintColor: colors.dark ? colors.accentBright : colors.accent,
+        tabBarInactiveTintColor: colors.muted,
+        tabBarLabelStyle: { fontFamily: fonts.semibold, fontSize: 11 },
+        tabBarStyle: { backgroundColor: colors.card, borderTopColor: colors.border, height: Platform.OS === 'ios' ? 88 : 64, paddingTop: 6 },
         tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? icons[route.name] : `${icons[route.name]}-outline`} size={size} color={color} />,
       })}
     >
@@ -72,7 +87,13 @@ function RootNavigator({ onboarded, setOnboarded }) {
     );
   }
   return (
-    <Stack.Navigator screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerBackButtonDisplayMode: 'minimal',
+        headerShadowVisible: false,
+        headerTitleStyle: { fontFamily: fonts.display, fontSize: 19 },
+      }}
+    >
       {!onboarded ? (
         <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
           {(props) => <OnboardingScreen {...props} onDone={setOnboarded} />}
@@ -120,7 +141,18 @@ export default function App() {
   const system = useColorScheme();
   const [mode, setModeState] = useState('system');
   const [onboarded, setOnboarded] = useState(null);
+  const [fontsLoaded, fontError] = useFonts({
+    Fraunces_500Medium,
+    Fraunces_600SemiBold,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+  });
   useNotificationRouting();
+  useEffect(() => {
+    if (fontsLoaded || fontError) SplashScreen.hideAsync().catch(() => {});
+  }, [fontsLoaded, fontError]);
 
   useEffect(() => {
     AsyncStorage.multiGet(['ph_theme', 'ph_onboarded']).then(([[, th], [, ob]]) => {
@@ -143,6 +175,8 @@ export default function App() {
     }),
     [dark, colors]
   );
+
+  if (!fontsLoaded && !fontError) return null; // splash stays up until fonts are ready
 
   const finishOnboarding = () => {
     AsyncStorage.setItem('ph_onboarded', '1').catch(() => {});

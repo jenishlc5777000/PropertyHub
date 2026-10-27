@@ -174,7 +174,7 @@ export default function PostProperty() {
             <Field label={t('type')} error={errs.type}>
               <div className="flex flex-wrap gap-2">
                 {PROPERTY_TYPES.map((ty) => (
-                  <button type="button" key={ty} onClick={() => set('type', ty)} className={`chip border px-4 py-2 text-sm ${f.type === ty ? 'border-accent-600 bg-accent-600 text-white' : 'border-slate-300 dark:border-slate-700'}`}>
+                  <button type="button" key={ty} onClick={() => set('type', ty)} className={`chip border px-4 py-2 text-sm ${f.type === ty ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900' : 'border-slate-300 dark:border-slate-700'}`}>
                     {titleCase(ty)}
                   </button>
                 ))}
@@ -285,7 +285,7 @@ export default function PostProperty() {
                 {AMENITIES.map((a) => {
                   const on = f.amenities.includes(a);
                   return (
-                    <button type="button" key={a} onClick={() => set('amenities', on ? f.amenities.filter((x) => x !== a) : [...f.amenities, a])} className={`chip border px-3 py-1.5 text-sm ${on ? 'border-accent-600 bg-accent-600 text-white' : 'border-slate-300 dark:border-slate-700'}`}>
+                    <button type="button" key={a} onClick={() => set('amenities', on ? f.amenities.filter((x) => x !== a) : [...f.amenities, a])} className={`chip border px-3 py-1.5 text-sm ${on ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900' : 'border-slate-300 dark:border-slate-700'}`}>
                       {titleCase(a)}
                     </button>
                   );

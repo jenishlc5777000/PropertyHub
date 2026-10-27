@@ -37,12 +37,12 @@ function useOutside(ref, cb) {
 
 export function Logo({ light }) {
   return (
-    <Link to="/" className="flex items-center gap-2 font-extrabold tracking-tight">
-      <span className="grid size-9 place-items-center rounded-xl bg-brand-900 text-accent-500 dark:bg-brand-700">
-        <Home className="size-5" />
+    <Link to="/" className="flex items-center gap-2.5" aria-label="PropertyHub home">
+      <span className={`grid size-9 place-items-center rounded-full ${light ? 'bg-white/10 text-accent-400 ring-1 ring-white/20' : 'bg-brand-900 text-accent-400 dark:bg-brand-700'}`}>
+        <Home className="size-[18px]" strokeWidth={2} />
       </span>
-      <span className={`text-xl ${light ? 'text-white' : 'text-brand-900 dark:text-white'}`}>
-        Property<span className="text-accent-600">Hub</span>
+      <span className={`font-display text-[22px] font-semibold tracking-[-0.02em] ${light ? 'text-white' : 'text-brand-900 dark:text-white'}`}>
+        Property<span className={light ? 'text-accent-400' : 'text-accent-600 dark:text-accent-400'}>Hub</span>
       </span>
     </Link>
   );
@@ -246,9 +246,9 @@ function Header() {
   }, [loc.pathname, loc.search]);
   const purpose = new URLSearchParams(loc.search).get('purpose');
   const navCls = ({ isActive }, want) =>
-    `rounded-lg px-3 py-2 text-sm font-medium transition ${isActive && (!want || (loc.pathname === '/properties' && purpose === want)) ? 'text-accent-600' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'}`;
+    `relative px-3 py-2 text-sm font-medium transition after:absolute after:inset-x-3 after:-bottom-[13px] after:h-0.5 after:rounded-full after:transition ${isActive && (!want || (loc.pathname === '/properties' && purpose === want)) ? 'text-slate-900 after:bg-accent-600 dark:text-white' : 'text-slate-500 after:bg-transparent hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`;
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
+    <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl backdrop-saturate-150 dark:border-slate-800 dark:bg-slate-950/80">
       <div className="container-x flex h-16 items-center justify-between gap-4">
         <div className="flex items-center gap-6">
           <Logo />
@@ -310,14 +310,14 @@ function Footer() {
   const { cities, singleCity } = useConfig();
   const areas = singleCity ? singleCity.localities.slice(0, 6).map((l) => ({ label: l.name, to: `/properties?locality=${encodeURIComponent(l.name)}` })) : cities.map((c) => ({ label: c.name, to: `/properties?city=${c.name}` }));
   return (
-    <footer className="mt-20 bg-brand-900 text-slate-300">
-      <div className="container-x grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
+    <footer className="mt-28 bg-brand-900 text-white/70">
+      <div className="container-x grid gap-10 py-16 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <Logo light />
           <p className="mt-3 text-sm text-slate-400">{singleCity ? t('taglineCity', { city: singleCity.name }) : t('tagline')}</p>
         </div>
         <div>
-          <h4 className="mb-3 font-semibold text-white">{singleCity ? `${t('listings')} in ${singleCity.name}` : t('listings')}</h4>
+          <h4 className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-white">{singleCity ? `${t('listings')} in ${singleCity.name}` : t('listings')}</h4>
           <ul className="space-y-2 text-sm">
             {areas.map((a) => (
               <li key={a.label}>
@@ -330,7 +330,7 @@ function Footer() {
           </ul>
         </div>
         <div>
-          <h4 className="mb-3 font-semibold text-white">{APP_NAME}</h4>
+          <h4 className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-white">{APP_NAME}</h4>
           <ul className="space-y-2 text-sm">
             <li><Link to="/about" className="hover:text-white">{t('about')}</Link></li>
             <li><Link to="/contact" className="hover:text-white">{t('contact')}</Link></li>
@@ -339,7 +339,7 @@ function Footer() {
           </ul>
         </div>
         <div>
-          <h4 className="mb-3 font-semibold text-white">Legal</h4>
+          <h4 className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-white">Legal</h4>
           <ul className="space-y-2 text-sm">
             <li><Link to="/privacy" className="hover:text-white">{t('privacy')}</Link></li>
             <li><Link to="/terms" className="hover:text-white">{t('terms')}</Link></li>
@@ -347,7 +347,7 @@ function Footer() {
           </ul>
         </div>
       </div>
-      <div className="border-t border-white/10 py-5 text-center text-xs text-slate-400">
+      <div className="border-t border-white/10 py-6 text-center text-xs text-white/50">
         © {new Date().getFullYear()} {APP_NAME}. Made in India.
       </div>
     </footer>

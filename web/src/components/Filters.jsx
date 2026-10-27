@@ -106,7 +106,7 @@ export default function Filters({ params, onApply }) {
               type="button"
               key={b}
               onClick={() => set('beds', b)}
-              className={`flex-1 rounded-lg border py-2 text-sm font-medium ${(f.beds || '') === b ? 'border-accent-600 bg-accent-50 text-accent-700 dark:bg-accent-600/10' : 'border-slate-300 dark:border-slate-700'}`}
+              className={`flex-1 rounded-lg border py-2 text-sm font-medium ${(f.beds || '') === b ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900' : 'border-slate-300 dark:border-slate-700'}`}
             >
               {b === '' ? t('any') : b === '4' ? '4+' : b}
             </button>
@@ -130,7 +130,7 @@ export default function Filters({ params, onApply }) {
               type="button"
               key={a}
               onClick={() => toggleAmenity(a)}
-              className={`chip border ${amenities.includes(a) ? 'border-accent-600 bg-accent-600 text-white' : 'border-slate-300 dark:border-slate-700'}`}
+              className={`chip border ${amenities.includes(a) ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900' : 'border-slate-300 dark:border-slate-700'}`}
             >
               {titleCase(a)}
             </button>

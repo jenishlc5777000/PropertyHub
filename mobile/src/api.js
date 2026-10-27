@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { createApiClient } from '@propertyhub/shared';
 
@@ -8,17 +9,27 @@ export const SITE_URL = process.env.EXPO_PUBLIC_SITE_URL || 'https://propertyhub
 const ACCESS = 'ph_access';
 const REFRESH = 'ph_refresh';
 
-// Tokens live in the device keychain/keystore, never in AsyncStorage.
+// Tokens live in the device keychain/keystore (expo-secure-store), never in AsyncStorage.
+// SecureStore has no web implementation, so the web preview (`expo start --web`) uses localStorage.
+const store =
+  Platform.OS === 'web'
+    ? {
+        get: async (k) => globalThis.localStorage?.getItem(k) ?? null,
+        set: async (k, v) => globalThis.localStorage?.setItem(k, v),
+        del: async (k) => globalThis.localStorage?.removeItem(k),
+      }
+    : { get: SecureStore.getItemAsync, set: SecureStore.setItemAsync, del: SecureStore.deleteItemAsync };
+
 export const tokenStore = {
-  getAccess: () => SecureStore.getItemAsync(ACCESS),
-  getRefresh: () => SecureStore.getItemAsync(REFRESH),
+  getAccess: () => store.get(ACCESS),
+  getRefresh: () => store.get(REFRESH),
   set: async (access, refresh) => {
-    await SecureStore.setItemAsync(ACCESS, access);
-    if (refresh) await SecureStore.setItemAsync(REFRESH, refresh);
+    await store.set(ACCESS, access);
+    if (refresh) await store.set(REFRESH, refresh);
   },
   clear: async () => {
-    await SecureStore.deleteItemAsync(ACCESS);
-    await SecureStore.deleteItemAsync(REFRESH);
+    await store.del(ACCESS);
+    await store.del(REFRESH);
   },
 };
 

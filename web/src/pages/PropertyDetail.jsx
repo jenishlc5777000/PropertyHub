@@ -159,7 +159,7 @@ export default function PropertyDetail() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <span className={`chip ${p.purpose === 'rent' ? 'bg-sky-100 text-sky-700' : 'bg-brand-100 text-brand-800'}`}>{p.purpose === 'rent' ? t('forRent') : t('forSale')}</span>
-                <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">{p.title}</h1>
+                <h1 className="mt-3 text-3xl leading-tight sm:text-[40px]">{p.title}</h1>
                 <p className="mt-1 flex items-center gap-1 text-slate-500"><MapPin className="size-4" /> {p.address.line}, {p.address.locality}, {p.address.city} {p.address.pincode}</p>
               </div>
               <div className="flex gap-2">
@@ -168,7 +168,7 @@ export default function PropertyDetail() {
               </div>
             </div>
             <div className="mt-4 flex items-baseline gap-3">
-              <PriceTag p={p} className="text-3xl font-extrabold text-brand-900 dark:text-white" />
+              <PriceTag p={p} className="text-4xl font-semibold text-slate-900 dark:text-white" />
               <span className="text-sm text-slate-500">{formatINR(p.price)}</span>
               {p.previousPrice > p.price && <span className="text-sm text-slate-400 line-through">{formatINR(p.previousPrice)}</span>}
             </div>
@@ -177,8 +177,8 @@ export default function PropertyDetail() {
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {facts.map(({ icon: Icon, label, value }) => (
-              <div key={label} className="card flex items-center gap-3 p-4">
-                <Icon className="size-5 text-accent-600" />
+              <div key={label} className="flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200/80 dark:bg-slate-900 dark:ring-slate-800">
+                <span className="grid size-10 place-items-center rounded-xl bg-accent-50 text-accent-700 dark:bg-accent-600/15 dark:text-accent-400"><Icon className="size-5" strokeWidth={1.75} /></span>
                 <div>
                   <p className="text-xs text-slate-500">{label}</p>
                   <p className="font-semibold">{value}</p>
@@ -188,13 +188,13 @@ export default function PropertyDetail() {
           </div>
 
           <section>
-            <h2 className="mb-2 text-lg font-bold">{t('description')}</h2>
+            <h2 className="mb-3 text-2xl">{t('description')}</h2>
             <p className="whitespace-pre-line leading-relaxed text-slate-600 dark:text-slate-300">{p.description}</p>
           </section>
 
           {p.amenities?.length > 0 && (
             <section>
-              <h2 className="mb-3 text-lg font-bold">{t('amenities')}</h2>
+              <h2 className="mb-4 text-2xl">{t('amenities')}</h2>
               <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {p.amenities.map((a) => (
                   <li key={a} className="flex items-center gap-2 text-sm"><Check className="size-4 text-accent-600" /> {titleCase(a)}</li>
@@ -204,7 +204,7 @@ export default function PropertyDetail() {
           )}
 
           <section>
-            <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><Compass className="size-5" /> {t('location')}</h2>
+            <h2 className="mb-4 flex items-center gap-2 text-2xl"><Compass className="size-5" /> {t('location')}</h2>
             <MapView properties={[p]} single className="h-80" />
             <a href={`https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=16/${p.lat}/${p.lng}`} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-accent-600 hover:underline">
               Open in OpenStreetMap ↗
@@ -213,7 +213,7 @@ export default function PropertyDetail() {
 
           {p.purpose === 'sale' && (
             <section className="card p-6">
-              <h2 className="mb-4 text-lg font-bold">{t('emiCalculator')}</h2>
+              <h2 className="mb-4 text-2xl">{t('emiCalculator')}</h2>
               <EmiCalculator price={p.price} />
             </section>
           )}
@@ -238,11 +238,11 @@ export default function PropertyDetail() {
           {!p.isOwner && p.status === 'approved' && (
             <>
               <div className="card p-5">
-                <h3 className="mb-3 font-semibold">{t('sendInquiry')}</h3>
+                <h3 className="mb-3 text-xl">{t('sendInquiry')}</h3>
                 <InquiryForm property={p} />
               </div>
               <div className="card p-5">
-                <h3 className="mb-3 font-semibold">{t('requestVisit')}</h3>
+                <h3 className="mb-3 text-xl">{t('requestVisit')}</h3>
                 <VisitForm property={p} />
               </div>
             </>
@@ -255,7 +255,7 @@ export default function PropertyDetail() {
 
       {similar.data?.length > 0 && (
         <section className="mt-16">
-          <h2 className="mb-1 text-2xl font-bold">{t('similar')}</h2>
+          <h2 className="mb-1 text-[30px]">{t('similar')}</h2>
           <p className="mb-6 text-sm text-slate-500">Same budget, within 10 km of this property</p>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {similar.data.slice(0, 3).map((s) => <PropertyCard key={s._id} p={s} />)}

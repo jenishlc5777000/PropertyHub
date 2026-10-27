@@ -38,10 +38,10 @@ export function Paywall({ onDone }) {
   const pay = async () => {
     const s = await purchase.buy(plan._id, promo);
     if (s === 'success') {
-      Alert.alert('✅', t('paymentSuccess'));
+      Alert.alert('Payment received', t('paymentSuccess'));
       onDone?.(s);
     } else if (s === 'pending') {
-      Alert.alert('⏳', t('paymentPending'));
+      Alert.alert('Payment pending', t('paymentPending'));
       onDone?.(s);
     }
   };
@@ -129,6 +129,8 @@ export default function ShowContact({ property, small }) {
         onPress={onPress}
         loading={unlock.isPending}
         small={small}
+        // Quiet outline on cards; solid primary on the detail page.
+        variant={small ? 'outline' : 'primary'}
       />
       <Sheet visible={sheet === 'confirm'} onClose={() => setSheet(null)} title={t('useCreditTitle')}>
         <View style={{ backgroundColor: colors.accentSoft, padding: 14, borderRadius: 12, flexDirection: 'row', gap: 10, alignItems: 'center' }}>

@@ -6,7 +6,7 @@ import { Spinner } from './ui';
 
 const icon = L.divIcon({
   className: '',
-  html: '<div style="transform:translate(-50%,-100%);font-size:32px;line-height:1">📍</div>',
+  html: '<div style="transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:#047857;border:3px solid #fff;box-shadow:0 2px 8px rgba(15,42,74,.4)"></div>',
   iconSize: [0, 0],
 });
 

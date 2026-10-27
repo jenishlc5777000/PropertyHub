@@ -29,7 +29,7 @@ export function AdminReviewScreen({ navigation }) {
     setRejecting(false);
     setReason('');
     ['adminProps', 'adminStats', 'properties', 'featured'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
-    Alert.alert('✅', msg);
+    Alert.alert('Done', msg);
   };
   const approve = useMutation({ mutationFn: api.admin.approve, onSuccess: () => done('Approved — the ad is now live.'), onError: (e) => Alert.alert('Error', apiErrorMessage(e)) });
   const reject = useMutation({ mutationFn: ({ id, r }) => api.admin.reject(id, r), onSuccess: () => done('Rejected — the owner has been notified.'), onError: (e) => Alert.alert('Error', apiErrorMessage(e)) });
@@ -69,7 +69,7 @@ export function AdminReviewScreen({ navigation }) {
             <Txt bold size={18} style={{ marginTop: 12 }}>{p.title}</Txt>
             <Txt bold size={20} style={{ color: colors.accent }}>{formatINR(p.price)}{p.purpose === 'rent' ? ' /month' : ''}</Txt>
             <Txt muted size={13}>{titleCase(p.type)} for {p.purpose} · {p.bedrooms} bed · {p.bathrooms} bath · {p.areaSqft} sq.ft · {titleCase(p.furnishing)}</Txt>
-            <Txt muted size={13} style={{ marginTop: 4 }}>📍 {p.address.line}, {p.address.locality}, {p.address.city} {p.address.pincode}</Txt>
+            <Txt muted size={13} style={{ marginTop: 4 }}>{p.address.line}, {p.address.locality}, {p.address.city} {p.address.pincode}</Txt>
             <OsmMap properties={[p]} style={{ height: 160, borderRadius: 12, marginTop: 10 }} />
             <Txt size={14} style={{ marginTop: 10 }}>{p.description}</Txt>
             <Card style={{ marginTop: 10, padding: 12 }}>

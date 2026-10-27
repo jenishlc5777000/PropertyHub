@@ -5,12 +5,19 @@ import L from 'leaflet';
 import { formatPriceShort } from '@propertyhub/shared';
 
 // Price-label pins (no image assets needed, so no bundler icon issues).
-const pin = (label, active) =>
+const pin = (label) =>
   L.divIcon({
     className: '',
-    html: `<div style="transform:translate(-50%,-100%);display:inline-block;white-space:nowrap;background:${active ? '#059669' : '#0f2a4a'};color:#fff;font:600 12px Inter,sans-serif;padding:4px 8px;border-radius:999px;box-shadow:0 2px 6px rgba(0,0,0,.3)">${label}</div>`,
+    html: `<div style="transform:translate(-50%,-100%);display:inline-block;white-space:nowrap;background:#0f2a4a;color:#fff;font:600 12px 'Plus Jakarta Sans',sans-serif;padding:5px 10px;border-radius:999px;border:2px solid #fff;box-shadow:0 4px 10px rgba(15,42,74,.35)">${label}</div>`,
     iconSize: [0, 0],
   });
+
+// Single-property location marker.
+const dot = L.divIcon({
+  className: '',
+  html: '<div style="transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#047857;border:3px solid #fff;box-shadow:0 2px 8px rgba(15,42,74,.4)"></div>',
+  iconSize: [0, 0],
+});
 
 /** Leaflet measures its container once; re-measure when it resizes (e.g. inside a modal or after a layout change). */
 function AutoResize() {
@@ -53,9 +60,9 @@ export default function MapView({ properties = [], center, radiusKm, className =
         <TileLayer {...TILE} />
         <AutoResize />
         <FitBounds points={bounds.length ? bounds : center ? [center] : []} />
-        {center && radiusKm && <Circle center={center} radius={radiusKm * 1000} pathOptions={{ color: '#059669', fillOpacity: 0.05 }} />}
+        {center && radiusKm && <Circle center={center} radius={radiusKm * 1000} pathOptions={{ color: '#047857', fillOpacity: 0.06 }} />}
         {pts.map((p) => (
-          <Marker key={p._id} position={[p.lat, p.lng]} icon={pin(single ? '📍' : formatPriceShort(p.price), single)}>
+          <Marker key={p._id} position={[p.lat, p.lng]} icon={single ? dot : pin(formatPriceShort(p.price))}>
             {!single && (
               <Popup>
                 <Link to={`/property/${p.slug}`} className="block w-48">

@@ -8,124 +8,12 @@ import * as Location from 'expo-location';
 import { AMENITIES, FURNISHING, PROPERTY_TYPES, RADIUS_OPTIONS_KM, SERVICE_RADIUS_KM, nearestCity, titleCase } from '@propertyhub/shared';
 import { api } from '../api';
 import { useTheme } from '../theme';
-import { useAuth } from '../context/AuthContext';
-import { useBalance, useConfig } from '../hooks';
+import { useConfig } from '../hooks';
 import PropertyCard from '../components/PropertyCard';
 import OsmMap from '../components/OsmMap';
 import { Button, Chip, EmptyState, ErrorState, ListSkeleton, Sheet, Txt } from '../components/ui';
 
 const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== '' && v != null && !(Array.isArray(v) && !v.length)));
-
-function CreditPill() {
-  const { t } = useTranslation();
-  const { data } = useBalance();
-  const { colors } = useTheme();
-  if (!data) return null;
-  return (
-    <View style={{ backgroundColor: colors.accentSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, flexDirection: 'row', gap: 4, alignItems: 'center' }}>
-      <Ionicons name="wallet-outline" size={13} color={colors.accent} />
-      <Txt size={12} bold style={{ color: colors.accent }}>{t('creditsLeft', { free: data.free, paid: data.paid })}</Txt>
-    </View>
-  );
-}
-
-function HorizontalList({ query }) {
-  const { colors } = useTheme();
-  if (query.isLoading) return <ActivityIndicator color={colors.accent} style={{ margin: 30 }} />;
-  if (query.isError) return <ErrorState error={query.error} onRetry={query.refetch} />;
-  const items = Array.isArray(query.data) ? query.data : query.data?.items || [];
-  return (
-    <FlatList
-      horizontal
-      data={items}
-      keyExtractor={(p) => p._id}
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
-      renderItem={({ item }) => (
-        <View style={{ width: 280 }}>
-          <PropertyCard p={item} compact />
-        </View>
-      )}
-    />
-  );
-}
-
-export function HomeScreen({ navigation }) {
-  const { t } = useTranslation();
-  const { colors } = useTheme();
-  const { user } = useAuth();
-  const [q, setQ] = useState('');
-  const { cities, singleCity } = useConfig();
-  const areas = cities.flatMap((c) => c.localities.map((l) => ({ ...l, city: c.name })));
-  const featured = useQuery({ queryKey: ['featured'], queryFn: api.properties.featured });
-  const latest = useQuery({ queryKey: ['properties', { sort: 'newest', limit: 8, boost: '0' }], queryFn: () => api.properties.list({ sort: 'newest', limit: 8, boost: '0' }) });
-  const notifs = useQuery({ queryKey: ['notifications'], queryFn: api.notifications.list, enabled: Boolean(user) });
-  const refreshing = featured.isRefetching || latest.isRefetching;
-  const go = (params) => navigation.navigate('Search', { filters: params, at: Date.now() });
-
-  return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.brand }}>
-      <ScrollView
-        style={{ backgroundColor: colors.bg }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { featured.refetch(); latest.refetch(); }} tintColor={colors.accent} />}
-      >
-        <View style={{ backgroundColor: colors.brand, padding: 20, paddingBottom: 28 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Txt bold size={22} style={{ color: '#fff' }}>Property<Txt bold size={22} style={{ color: '#10b981' }}>Hub</Txt></Txt>
-            {user ? (
-              <Pressable onPress={() => navigation.navigate('Notifications')} hitSlop={10} accessibilityLabel={t('notifications')}>
-                <Ionicons name="notifications-outline" size={24} color="#fff" />
-                {notifs.data?.unread > 0 ? <View style={{ position: 'absolute', right: -2, top: -2, width: 10, height: 10, borderRadius: 5, backgroundColor: '#ef4444' }} /> : null}
-              </Pressable>
-            ) : (
-              <Pressable onPress={() => navigation.navigate('Login')}><Txt bold style={{ color: '#fff' }}>{t('login')}</Txt></Pressable>
-            )}
-          </View>
-          <Txt size={12} bold style={{ color: '#10b981', marginTop: 16 }}>📍 Now live in {cities.map((c) => c.name).join(', ')}</Txt>
-          <Txt bold size={24} style={{ color: '#fff', marginTop: 4 }}>{singleCity ? t('taglineCity', { city: singleCity.name }) : t('tagline')}</Txt>
-          {user ? <View style={{ marginTop: 10, alignSelf: 'flex-start' }}><CreditPill /></View> : null}
-          <View style={{ flexDirection: 'row', marginTop: 16, backgroundColor: colors.card, borderRadius: 14, alignItems: 'center', paddingHorizontal: 12 }}>
-            <Ionicons name="search" size={18} color={colors.muted} />
-            <TextInput
-              value={q}
-              onChangeText={setQ}
-              placeholder={t('searchPlaceholder')}
-              placeholderTextColor={colors.muted}
-              returnKeyType="search"
-              onSubmitEditing={() => go({ q })}
-              style={{ flex: 1, paddingVertical: 14, paddingHorizontal: 8, color: colors.text }}
-            />
-          </View>
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-            <Button title={t('buy')} small variant="outline" onPress={() => go({ purpose: 'sale' })} style={{ flex: 1 }} />
-            <Button title={t('rent')} small variant="outline" onPress={() => go({ purpose: 'rent' })} style={{ flex: 1 }} />
-            <Button title={t('postProperty')} small onPress={() => (user ? navigation.navigate('PostProperty') : navigation.navigate('Login'))} style={{ flex: 1.4 }} />
-          </View>
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 8 }}>
-          <Chip label={`📍 ${t('nearMe')}`} active onPress={() => navigation.navigate('Map', { autoNear: Date.now() })} />
-          {areas.map((a) => (
-            <Chip key={`${a.city}|${a.name}`} label={singleCity ? a.name : `${a.name}, ${a.city}`} onPress={() => go({ locality: a.name, ...(singleCity ? {} : { city: a.city }) })} />
-          ))}
-        </ScrollView>
-
-        <Txt bold size={19} style={{ marginHorizontal: 16, marginBottom: 12 }}>{t('featured')}</Txt>
-        <HorizontalList query={featured} />
-        <Txt bold size={19} style={{ marginHorizontal: 16, marginVertical: 12 }}>{t('latest')}</Txt>
-        <HorizontalList query={latest} />
-        <Pressable onPress={() => navigation.navigate('Emi')} style={{ margin: 16, padding: 18, borderRadius: 16, backgroundColor: colors.accent, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Ionicons name="calculator-outline" size={26} color="#fff" />
-          <View style={{ flex: 1 }}>
-            <Txt bold style={{ color: '#fff' }}>{t('emiCalculator')}</Txt>
-            <Txt size={13} style={{ color: '#d1fae5' }}>Plan your home loan in seconds</Txt>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#fff" />
-        </Pressable>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
 
 const PRICE = { sale: [0, 2500000, 5000000, 10000000, 20000000, 50000000], rent: [0, 10000, 20000, 30000, 50000, 100000] };
 const priceLabel = (n) => (n >= 1e7 ? `₹${n / 1e7}Cr` : n >= 1e5 ? `₹${n / 1e5}L` : n >= 1e3 ? `₹${n / 1e3}K` : 'Any');
@@ -217,10 +105,13 @@ export function SearchScreen({ route }) {
   });
   const items = list.data?.pages.flatMap((p) => p.items) || [];
   const activeCount = Object.keys(clean(filters)).filter((k) => k !== 'q').length;
+  const { singleCity } = useConfig();
+  const place = filters.locality || singleCity?.name;
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.bg }}>
-      <View style={{ padding: 16, paddingBottom: 8, gap: 10 }}>
+      <View style={{ padding: 20, paddingBottom: 8, gap: 12 }}>
+        <Txt display size={30}>{place ? `Homes in ${place}` : t('listings')}</Txt>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 10 }}>
             <Ionicons name="search" size={18} color={colors.muted} />

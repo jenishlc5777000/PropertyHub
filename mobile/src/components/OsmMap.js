@@ -13,8 +13,8 @@ const html = `<!doctype html><html><head>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>html,body,#m{margin:0;height:100%;font-family:-apple-system,Roboto,sans-serif}
-.pin{transform:translate(-50%,-100%);display:inline-block;white-space:nowrap;background:#0f2a4a;color:#fff;font-weight:700;font-size:12px;padding:4px 8px;border-radius:999px;box-shadow:0 2px 6px rgba(0,0,0,.3)}
-.pin.me{background:#059669}</style></head><body><div id="m"></div><script>
+.pin{transform:translate(-50%,-100%);display:inline-block;white-space:nowrap;background:#0f2a4a;color:#fff;font-weight:700;font-size:12px;padding:5px 10px;border-radius:999px;border:2px solid #fff;box-shadow:0 4px 10px rgba(15,42,74,.35)}
+.dot{transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#047857;border:3px solid #fff;box-shadow:0 2px 8px rgba(15,42,74,.4)}</style></head><body><div id="m"></div><script>
 var map=L.map('m',{zoomControl:true}).setView([20.59,78.96],5);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
 var layer=L.layerGroup().addTo(map), picker=null, circle=null;
@@ -25,9 +25,9 @@ window.setData=function(d){
   var pts=[];
   (d.markers||[]).forEach(function(m){pts.push([m.lat,m.lng]);
     L.marker([m.lat,m.lng],{icon:icon(m.label)}).on('click',function(){post({type:'select',id:m.id});}).addTo(layer);});
-  if(d.center){pts.push(d.center); if(d.radiusKm){circle=L.circle(d.center,{radius:d.radiusKm*1000,color:'#059669',fillOpacity:.05}).addTo(map);}}
+  if(d.center){pts.push(d.center); if(d.radiusKm){circle=L.circle(d.center,{radius:d.radiusKm*1000,color:'#047857',fillOpacity:.06}).addTo(map);}}
   if(d.mode==='picker'){
-    if(d.pick){ if(!picker){picker=L.marker(d.pick,{draggable:true,icon:icon('📍',true)}).addTo(map);
+    if(d.pick){ if(!picker){picker=L.marker(d.pick,{draggable:true,icon:L.divIcon({className:'',html:'<div class="dot"></div>',iconSize:[0,0]})}).addTo(map);
       picker.on('dragend',function(e){var p=e.target.getLatLng();post({type:'pick',lat:p.lat,lng:p.lng});});} else picker.setLatLng(d.pick);
       map.setView(d.pick,Math.max(map.getZoom(),15)); }
     return;

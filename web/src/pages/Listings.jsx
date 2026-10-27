@@ -108,7 +108,7 @@ export default function Listings() {
       <Seo title={heading} description={`Browse ${heading.toLowerCase()} on PropertyHub. Verified listings with photos, prices and direct owner contact.`} path={`/properties?${params}`} />
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{near ? `${t('nearMe')} · within ${radiusKm} km` : heading}</h1>
+          <h1 className="text-3xl leading-tight sm:text-[36px]">{near ? `${t('nearMe')} · within ${radiusKm} km` : heading}</h1>
           {total != null && <p className="text-sm text-slate-500">{t('results', { count: total })}{near ? ' · nearest first' : ''}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2">

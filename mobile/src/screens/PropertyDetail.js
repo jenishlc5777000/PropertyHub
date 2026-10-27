@@ -75,7 +75,7 @@ function InquiryBox({ property, navigation }) {
   const m = useMutation({
     mutationFn: api.inquiries.create,
     onSuccess: (inq) => {
-      Alert.alert('✅', 'Inquiry sent! Replies appear in Inquiries.', [{ text: 'Open chat', onPress: () => navigation.navigate('Chat', { id: inq._id }) }, { text: 'OK' }]);
+      Alert.alert('Sent', 'Inquiry sent! Replies appear in Inquiries.', [{ text: 'Open chat', onPress: () => navigation.navigate('Chat', { id: inq._id }) }, { text: 'OK' }]);
     },
     onError: (e) => Alert.alert(t('errorGeneric'), apiErrorMessage(e)),
   });
@@ -103,7 +103,7 @@ function VisitBox({ property, navigation }) {
   const [slot, setSlot] = useState('morning');
   const m = useMutation({
     mutationFn: api.visits.create,
-    onSuccess: () => Alert.alert('✅', 'Visit requested. You will be notified when the owner confirms.'),
+    onSuccess: () => Alert.alert('Requested', 'Visit requested. You will be notified when the owner confirms.'),
     onError: (e) => Alert.alert(t('errorGeneric'), apiErrorMessage(e)),
   });
   return (
@@ -201,7 +201,7 @@ export default function PropertyDetailScreen({ route, navigation }) {
             </Txt>
             {p.previousPrice > p.price ? <Txt size={13} style={{ color: colors.danger }}>Price dropped from {formatINR(p.previousPrice)}</Txt> : null}
             <Txt bold size={18} style={{ marginTop: 6 }}>{p.title}</Txt>
-            <Txt muted style={{ marginTop: 4 }}>📍 {p.address.line}, {p.address.locality}, {p.address.city} {p.address.pincode}</Txt>
+            <Txt muted style={{ marginTop: 4 }}>{p.address.line}, {p.address.locality}, {p.address.city} {p.address.pincode}</Txt>
           </View>
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
@@ -237,7 +237,7 @@ export default function PropertyDetailScreen({ route, navigation }) {
             <View>
               <Txt bold size={17} style={{ marginBottom: 8 }}>{t('amenities')}</Txt>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {p.amenities.map((a) => <Chip key={a} label={`✓ ${titleCase(a)}`} />)}
+                {p.amenities.map((a) => <Chip key={a} label={titleCase(a)} />)}
               </View>
             </View>
           ) : null}

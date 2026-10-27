@@ -11,6 +11,8 @@ Everything runs on free tiers. The only paid-per-use service is **Razorpay** (a 
 | `mobile/` | Expo SDK 58 (React Native 0.88), React Navigation 7, react-native-razorpay, Leaflet/OSM in a WebView | Expo EAS (free tier) |
 | `shared/` | Zod schemas, API client, INR/EMI/GST/masking helpers, translations (en, hi, ta, te, kn, ml) | — (imported by all three) |
 
+**Design:** [`DESIGN.md`](DESIGN.md) defines the visual system both apps share ("warm paper, navy ink"): colours with contrast-checked roles, Fraunces + Plus Jakarta Sans, the spacing and radius scales, and component specs. Tokens live in `web/src/index.css` and `mobile/src/theme.js`.
+
 ---
 
 ## Contents
@@ -145,7 +147,13 @@ npm start                               # expo start --dev-client
 ```
 To build locally instead, run `npx expo run:android`. It needs Android Studio and the JDK.
 
-**Option B: Expo Go (quick UI preview only)**
+**Option B: browser preview (fastest way to see the UI)**
+```bash
+EXPO_PUBLIC_API_URL=http://localhost:5000/api/v1 npm run web   # opens at http://localhost:8081
+```
+This renders the app with react-native-web. Maps, payments and push notifications only work on a real device.
+
+**Option C: Expo Go (quick on-device preview)**
 ```bash
 npm run start:go
 ```

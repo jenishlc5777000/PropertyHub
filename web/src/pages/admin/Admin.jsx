@@ -301,7 +301,7 @@ function LiveCities() {
             <button
               key={c.name}
               onClick={() => setSel(on ? current.filter((x) => x !== c.name) : [...current, c.name])}
-              className={`chip border px-3 py-1.5 text-sm ${on ? 'border-accent-600 bg-accent-600 text-white' : 'border-slate-300 dark:border-slate-700'}`}
+              className={`chip border px-3 py-1.5 text-sm ${on ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900' : 'border-slate-300 dark:border-slate-700'}`}
               aria-pressed={on}
             >
               {on && <Check className="size-3.5" />} {c.name}

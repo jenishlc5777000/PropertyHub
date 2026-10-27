@@ -133,7 +133,12 @@ export default function ShowContactButton({ property, compact }) {
   const masked = property.contact;
   return (
     <>
-      <button onClick={onClick} className={`btn-primary w-full ${compact ? 'py-2' : 'py-3'}`} disabled={unlock.isPending}>
+      <button
+        onClick={onClick}
+        // On cards it's a quiet secondary pill so a grid isn't a wall of green; on the detail page it's the primary action.
+        className={compact ? 'btn-outline w-full py-2 hover:border-accent-600 hover:text-accent-700 dark:hover:text-accent-400' : 'btn-primary w-full py-3.5 text-[15px]'}
+        disabled={unlock.isPending}
+      >
         {unlock.isPending ? <Spinner className="size-4" /> : <Phone className="size-4" />}
         {contact || property.contactUnlocked ? t('contactDetails') : t('showContact')}
         {!compact && !contact && masked?.phone && <span className="font-mono text-xs opacity-80">{masked.phone}</span>}

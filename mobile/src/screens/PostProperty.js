@@ -77,7 +77,7 @@ export default function PostPropertyScreen({ route, navigation }) {
     onSuccess: (p) => {
       qc.invalidateQueries({ queryKey: ['myListings'] });
       qc.invalidateQueries({ queryKey: ['property'] });
-      Alert.alert('✅', p.status === 'pending' ? 'Submitted! Your listing goes live after a quick review.' : 'Listing saved.');
+      Alert.alert('Submitted', p.status === 'pending' ? 'Submitted! Your listing goes live after a quick review.' : 'Listing saved.');
       navigation.replace('MyListings');
     },
     onError: (e) => {

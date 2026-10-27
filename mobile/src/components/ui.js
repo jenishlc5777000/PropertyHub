@@ -2,12 +2,25 @@ import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Animated, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../theme';
+import { fonts, shadows, useTheme } from '../theme';
 
-export function Txt({ style, muted, bold, size = 15, children, ...rest }) {
+/**
+ * Text with the design-system fonts. Bold text at 20px and up (headings, prices) uses the
+ * Fraunces display serif; everything else uses Plus Jakarta Sans. Pass display / semibold to override.
+ */
+export function Txt({ style, muted, bold, semibold, display, size = 15, children, ...rest }) {
   const { colors } = useTheme();
+  const serif = display ?? (bold && size >= 20);
+  const fontFamily = serif ? fonts.display : bold ? fonts.bold : semibold ? fonts.semibold : fonts.regular;
   return (
-    <Text style={[{ color: muted ? colors.muted : colors.text, fontSize: size, fontWeight: bold ? '700' : '400' }, style]} {...rest}>
+    <Text
+      style={[
+        { color: muted ? colors.muted : colors.text, fontSize: size, fontFamily, letterSpacing: serif ? -0.3 : 0 },
+        serif && { lineHeight: Math.round(size * 1.15) },
+        style,
+      ]}
+      {...rest}
+    >
       {children}
     </Text>
   );
@@ -19,6 +32,7 @@ export function Button({ title, onPress, variant = 'primary', icon, loading, dis
     primary: { bg: colors.accent, fg: '#fff', border: colors.accent },
     dark: { bg: colors.brand, fg: '#fff', border: colors.brand },
     outline: { bg: colors.card, fg: colors.text, border: colors.border },
+    light: { bg: '#ffffff', fg: '#111a2b', border: '#ffffff' },
     danger: { bg: colors.danger, fg: '#fff', border: colors.danger },
     whatsapp: { bg: colors.whatsapp, fg: '#fff', border: colors.whatsapp },
     ghost: { bg: 'transparent', fg: colors.text, border: 'transparent' },
@@ -30,13 +44,13 @@ export function Button({ title, onPress, variant = 'primary', icon, loading, dis
       accessibilityRole="button"
       style={({ pressed }) => [
         styles.btn,
-        small && { paddingVertical: 8, paddingHorizontal: 12 },
-        { backgroundColor: v.bg, borderColor: v.border, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
+        small && { paddingVertical: 9, paddingHorizontal: 14 },
+        { backgroundColor: v.bg, borderColor: v.border, opacity: disabled ? 0.5 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
         style,
       ]}
     >
       {loading ? <ActivityIndicator color={v.fg} size="small" /> : icon ? <Ionicons name={icon} size={18} color={v.fg} /> : null}
-      {title ? <Text style={{ color: v.fg, fontWeight: '700', fontSize: small ? 13 : 15 }}>{title}</Text> : null}
+      {title ? <Text style={{ color: v.fg, fontFamily: fonts.semibold, fontSize: small ? 13 : 15 }}>{title}</Text> : null}
     </Pressable>
   );
 }
@@ -44,7 +58,7 @@ export function Button({ title, onPress, variant = 'primary', icon, loading, dis
 export function Card({ style, children, ...rest }) {
   const { colors } = useTheme();
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, style]} {...rest}>
+    <View style={[styles.card, shadows.card, { backgroundColor: colors.card, borderColor: colors.border }, style]} {...rest}>
       {children}
     </View>
   );
@@ -54,10 +68,10 @@ export function Input({ label, error, style, ...rest }) {
   const { colors } = useTheme();
   return (
     <View style={{ marginBottom: 14 }}>
-      {label ? <Txt size={13} bold style={{ marginBottom: 6 }}>{label}</Txt> : null}
+      {label ? <Txt size={13} semibold style={{ marginBottom: 6, color: colors.body }}>{label}</Txt> : null}
       <TextInput
         placeholderTextColor={colors.muted}
-        style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: error ? colors.danger : colors.border }, style]}
+        style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: error ? colors.danger : colors.border, fontFamily: fonts.regular }, style]}
         {...rest}
       />
       {error ? <Txt size={12} style={{ color: colors.danger, marginTop: 4 }}>{error}</Txt> : null}
@@ -70,9 +84,9 @@ export function Chip({ label, active, onPress, style }) {
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.chip, { borderColor: active ? colors.accent : colors.border, backgroundColor: active ? colors.accent : colors.card }, style]}
+      style={[styles.chip, { borderColor: active ? colors.chipActiveBg : colors.border, backgroundColor: active ? colors.chipActiveBg : colors.card }, style]}
     >
-      <Text style={{ color: active ? '#fff' : colors.text, fontSize: 13, fontWeight: '600' }}>{label}</Text>
+      <Text style={{ color: active ? colors.chipActiveText : colors.text, fontSize: 13, fontFamily: fonts.semibold }}>{label}</Text>
     </Pressable>
   );
 }
@@ -149,6 +163,7 @@ export function Sheet({ visible, onClose, title, children }) {
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={[styles.sheet, { backgroundColor: colors.card }]} onPress={() => {}}>
+          <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: 14 }} />
           <View style={styles.sheetHeader}>
             <Txt bold size={18} style={{ flex: 1 }}>{title}</Txt>
             <Pressable onPress={onClose} hitSlop={12} accessibilityLabel="Close">
@@ -176,18 +191,18 @@ export function StatusPill({ status }) {
   }[status] || ['#e2e8f0', '#334155'];
   return (
     <View style={{ backgroundColor: map[0], paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, alignSelf: 'flex-start' }}>
-      <Text style={{ color: map[1], fontSize: 11, fontWeight: '700' }}>{t(`status_${status}`, { defaultValue: status })}</Text>
+      <Text style={{ color: map[1], fontSize: 11, fontFamily: fonts.bold }}>{t(`status_${status}`, { defaultValue: status })}</Text>
     </View>
   );
 }
 
 export const styles = StyleSheet.create({
-  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 13, paddingHorizontal: 18, borderRadius: 12, borderWidth: 1 },
-  card: { borderRadius: 16, borderWidth: 1, padding: 16 },
+  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 999, borderWidth: 1 },
+  card: { borderRadius: 20, borderWidth: 1, padding: 16 },
   input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
   chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, minHeight: 300 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.6)', justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 36, maxHeight: '90%' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(10,17,32,0.55)', justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 22, paddingBottom: 36, maxHeight: '90%' },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
 });

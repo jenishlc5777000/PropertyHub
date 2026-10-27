@@ -105,7 +105,7 @@ export function MyListingsScreen({ navigation }) {
             <View style={{ flex: 1, gap: 3 }}>
               <StatusPill status={p.status} />
               <Txt bold numberOfLines={1}>{p.title}</Txt>
-              <Txt muted size={12}>{formatPriceShort(p.price)} · 👁 {p.views} · 🔓 {p.unlockCount}</Txt>
+              <Txt muted size={12}>{formatPriceShort(p.price)} · {p.views} views · {p.unlockCount} unlocks</Txt>
               {p.status === 'rejected' && p.rejectionReason ? <Txt size={12} style={{ color: colors.danger }}>{p.rejectionReason}</Txt> : null}
             </View>
           </Pressable>
@@ -401,12 +401,12 @@ export function SettingsScreen() {
   const [pwErrs, setPwErrs] = useState({});
   const save = useMutation({
     mutationFn: api.users.update,
-    onSuccess: (u) => { setUser(u); Alert.alert('✅', 'Profile updated'); },
+    onSuccess: (u) => { setUser(u); Alert.alert('Saved', 'Profile updated'); },
     onError: (e) => Alert.alert('Error', apiErrorMessage(e)),
   });
   const changePw = useMutation({
     mutationFn: api.users.changePassword,
-    onSuccess: () => { setPw({ currentPassword: '', newPassword: '' }); Alert.alert('✅', 'Password changed'); },
+    onSuccess: () => { setPw({ currentPassword: '', newPassword: '' }); Alert.alert('Saved', 'Password changed'); },
     onError: (e) => Alert.alert('Error', apiErrorMessage(e)),
   });
   const setLang = (code) => {
@@ -496,7 +496,10 @@ export function AgentProfileScreen({ route, navigation }) {
           <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
             <Txt bold size={28} style={{ color: '#fff' }}>{a.name[0]}</Txt>
           </View>
-          <Txt bold size={20} style={{ marginTop: 8 }}>{a.name} ✓</Txt>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
+            <Txt bold size={22}>{a.name}</Txt>
+            <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
+          </View>
           <Txt muted size={13}>Member since {new Date(a.createdAt).getFullYear()} · {q.data.stats.listings} listings</Txt>
           {a.bio ? <Txt muted style={{ textAlign: 'center', marginTop: 8 }}>{a.bio}</Txt> : null}
           <Txt bold style={{ marginTop: 14, alignSelf: 'flex-start' }}>{t('agentListings', { name: a.name })}</Txt>
